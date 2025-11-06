@@ -10,9 +10,21 @@ This repository hosts custom integrations and plugins for Home Assistant. All in
 
 ## Available Plugins
 
-This repository will contain multiple custom integrations for Home Assistant. Each plugin will be located in its own directory under `custom_components/`.
+This repository contains custom integrations for Home Assistant. Each plugin is located in its own directory under `custom_components/`.
 
-*Currently, no plugins have been added yet. Check back soon!*
+### 🚗 Car Rental Tracker
+
+**Track your car rental contract with KM limits and avoid overage charges!**
+
+A comprehensive integration for managing long-term car rentals with KM allowances. Features include:
+- Real-time odometer tracking
+- Monthly KM usage statistics
+- Projected overage calculations
+- Smart alerts for usage warnings
+- Beautiful dashboard card with progress bars and charts
+- Cost projections
+
+[📖 Documentation](custom_components/car_rental_tracker/README.md) | [⬇️ Installation Guide](custom_components/car_rental_tracker/README.md#installation)
 
 ## Installation
 

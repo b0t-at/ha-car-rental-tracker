@@ -1,0 +1,12 @@
+{
+  "domain": "car_rental_tracker",
+  "name": "Car Rental Tracker",
+  "documentation": "https://github.com/Utesgui/HA-plugins/tree/main/custom_components/car_rental_tracker",
+  "issue_tracker": "https://github.com/Utesgui/HA-plugins/issues",
+  "codeowners": ["@Utesgui"],
+  "requirements": ["python-dateutil>=2.8.0"],
+  "dependencies": [],
+  "version": "1.0.0",
+  "iot_class": "calculated",
+  "config_flow": true
+}

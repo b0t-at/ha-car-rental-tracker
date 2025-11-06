@@ -1,0 +1,45 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Car Rental Tracker",
+        "description": "Configure your car rental contract tracking",
+        "data": {
+          "start_date": "Start Date",
+          "end_date": "End Date",
+          "km_allowance_per_month": "KM Allowance per Month",
+          "initial_odometer": "Initial Odometer (KM)",
+          "overage_cost_per_km": "Overage Cost per KM",
+          "odometer_entity": "Odometer Sensor Entity"
+        }
+      }
+    },
+    "error": {
+      "invalid_date_range": "End date must be after start date",
+      "invalid_date_format": "Invalid date format"
+    },
+    "abort": {
+      "already_configured": "This car rental is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update Car Rental Tracker",
+        "description": "Update your car rental contract configuration",
+        "data": {
+          "start_date": "Start Date",
+          "end_date": "End Date",
+          "km_allowance_per_month": "KM Allowance per Month",
+          "initial_odometer": "Initial Odometer (KM)",
+          "overage_cost_per_km": "Overage Cost per KM",
+          "odometer_entity": "Odometer Sensor Entity"
+        }
+      }
+    },
+    "error": {
+      "invalid_date_range": "End date must be after start date",
+      "invalid_date_format": "Invalid date format"
+    }
+  }
+}
