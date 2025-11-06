@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -41,21 +42,13 @@ async def _register_lovelace_resource(hass: HomeAssistant) -> None:
     if RESOURCE_REGISTERED_FLAG in hass.data.get(DOMAIN, {}):
         return
     
-    # Register the frontend path for the www directory
-    hass.http.register_static_path(
-        f"/hacsfiles/{DOMAIN}",
-        hass.config.path(f"custom_components/{DOMAIN}/www"),
-        cache_headers=False,
-    )
-    _LOGGER.info(f"Registered frontend path: /hacsfiles/{DOMAIN}")
-    
-    # Also register the alternative /local path for backward compatibility
-    hass.http.register_static_path(
-        f"/local/community/{DOMAIN}",
-        hass.config.path(f"custom_components/{DOMAIN}/www"),
-        cache_headers=False,
-    )
-    _LOGGER.info(f"Registered frontend path: /local/community/{DOMAIN}")
+    # Register the frontend paths for the www directory
+    www_path = hass.config.path(f"custom_components/{DOMAIN}/www")
+    await hass.http.async_register_static_paths([
+        StaticPathConfig(url_path=f"/hacsfiles/{DOMAIN}", path=www_path, cache_headers=False),
+        StaticPathConfig(url_path=f"/local/community/{DOMAIN}", path=www_path, cache_headers=False),
+    ])
+    _LOGGER.info(f"Registered frontend paths: /hacsfiles/{DOMAIN} and /local/community/{DOMAIN}")
     
     # Mark as registered
     hass.data.setdefault(DOMAIN, {})
