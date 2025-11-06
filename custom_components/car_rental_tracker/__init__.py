@@ -45,8 +45,8 @@ async def _register_lovelace_resource(hass: HomeAssistant) -> None:
     # Register the frontend paths for the www directory
     www_path = hass.config.path(f"custom_components/{DOMAIN}/www")
     await hass.http.async_register_static_paths([
-        StaticPathConfig(f"/hacsfiles/{DOMAIN}", www_path, False),
-        StaticPathConfig(f"/local/community/{DOMAIN}", www_path, False),
+        StaticPathConfig(url_path=f"/hacsfiles/{DOMAIN}", path=www_path, cache_headers=False),
+        StaticPathConfig(url_path=f"/local/community/{DOMAIN}", path=www_path, cache_headers=False),
     ])
     _LOGGER.info(f"Registered frontend paths: /hacsfiles/{DOMAIN} and /local/community/{DOMAIN}")
     
