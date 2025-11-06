@@ -75,12 +75,14 @@ A comprehensive Home Assistant integration for tracking car rental contracts wit
 
 ### Step 2: Add the Dashboard Card
 
+The Lovelace card resource is automatically registered when you set up the integration. You just need to add the card to your dashboard!
+
 #### Option A: Visual Editor
 
-1. Add the custom card resource:
+1. Add the custom card resource (if not auto-detected):
    - Go to **Settings** → **Dashboards** → **Resources**
    - Click **Add Resource**
-   - URL: `/local/community/car_rental_tracker/car-rental-card.js`
+   - URL: `/hacsfiles/car_rental_tracker/car-rental-card.js`
    - Resource type: **JavaScript Module**
 
 2. Add the card to your dashboard:
@@ -91,7 +93,7 @@ A comprehensive Home Assistant integration for tracking car rental contracts wit
 
 #### Option B: YAML Configuration
 
-1. Add the resource to your `configuration.yaml` or dashboard configuration:
+1. Add the resource to your `configuration.yaml` or dashboard configuration (if not auto-detected):
 
 ```yaml
 lovelace:
@@ -109,6 +111,8 @@ title: My Rental Car
 ```
 
 Replace `XXXXX` with your integration's unique ID.
+
+**Note:** After installing the integration, you may need to clear your browser cache or perform a hard refresh (Ctrl+F5 or Cmd+Shift+R) to load the card JavaScript file.
 
 ## Sensors Created
 
@@ -262,10 +266,16 @@ The integration tracks which rental month you're in and calculates statistics fo
 - Check that all configuration values are correct
 - Verify your odometer entity is providing valid data
 
-### Card not displaying correctly
-- Clear browser cache
-- Verify the card resource is loaded in Developer Tools → Resources
-- Check browser console for JavaScript errors
+### Card not displaying correctly or "Custom element not found: car-rental-card"
+- **Clear browser cache** with a hard refresh (Ctrl+F5 or Cmd+Shift+R)
+- **Manually add the resource** if it's not auto-detected:
+  - Go to **Settings** → **Dashboards** → **Resources**
+  - Click **Add Resource**
+  - URL: `/hacsfiles/car_rental_tracker/car-rental-card.js`
+  - Resource type: **JavaScript Module**
+- Verify the card resource is loaded in **Developer Tools** → **Info** (check frontend version)
+- Check browser console (F12) for JavaScript errors
+- Ensure you've restarted Home Assistant after installation
 
 ### Wrong calculations
 - Verify your start and end dates are correct

@@ -7,6 +7,9 @@ from typing import Final
 # Integration domain
 DOMAIN: Final = "car_rental_tracker"
 
+# Internal flags
+RESOURCE_REGISTERED_FLAG: Final = f"{DOMAIN}_resource_registered"
+
 # Configuration keys
 CONF_START_DATE: Final = "start_date"
 CONF_END_DATE: Final = "end_date"
