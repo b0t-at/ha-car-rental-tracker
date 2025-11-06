@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN
+from .const import DOMAIN, RESOURCE_REGISTERED_FLAG
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def _register_lovelace_resource(hass: HomeAssistant) -> None:
     """Register the Lovelace card resource."""
     # Only register once
-    if f"{DOMAIN}_resource_registered" in hass.data.get(DOMAIN, {}):
+    if RESOURCE_REGISTERED_FLAG in hass.data.get(DOMAIN, {}):
         return
     
     # Register the frontend path for the www directory
@@ -59,7 +59,7 @@ async def _register_lovelace_resource(hass: HomeAssistant) -> None:
     
     # Mark as registered
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][f"{DOMAIN}_resource_registered"] = True
+    hass.data[DOMAIN][RESOURCE_REGISTERED_FLAG] = True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
