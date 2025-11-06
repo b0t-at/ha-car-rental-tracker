@@ -35,6 +35,33 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
+async def _register_lovelace_resource(hass: HomeAssistant) -> None:
+    """Register the Lovelace card resource."""
+    # Only register once
+    if f"{DOMAIN}_resource_registered" in hass.data.get(DOMAIN, {}):
+        return
+    
+    # Register the frontend path for the www directory
+    hass.http.register_static_path(
+        f"/hacsfiles/{DOMAIN}",
+        hass.config.path(f"custom_components/{DOMAIN}/www"),
+        cache_headers=False,
+    )
+    _LOGGER.info(f"Registered frontend path: /hacsfiles/{DOMAIN}")
+    
+    # Also register the alternative /local path for backward compatibility
+    hass.http.register_static_path(
+        f"/local/community/{DOMAIN}",
+        hass.config.path(f"custom_components/{DOMAIN}/www"),
+        cache_headers=False,
+    )
+    _LOGGER.info(f"Registered frontend path: /local/community/{DOMAIN}")
+    
+    # Mark as registered
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][f"{DOMAIN}_resource_registered"] = True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Car Rental Tracker from a config entry.
     
@@ -45,6 +72,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Store integration data in hass.data
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = entry.data
+    
+    # Register Lovelace resource
+    await _register_lovelace_resource(hass)
     
     # Forward the setup to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
