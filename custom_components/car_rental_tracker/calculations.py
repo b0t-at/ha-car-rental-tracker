@@ -1,6 +1,7 @@
 """Calculation utilities for Car Rental Tracker."""
 from __future__ import annotations
 
+import calendar
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from typing import NamedTuple
@@ -132,9 +133,8 @@ def calculate_months_between(start_date: date, end_date: date) -> float:
     delta = relativedelta(end_date, start_date)
     months = delta.years * 12 + delta.months
     # Add fractional month based on days
-    days_in_end_month = (end_date.replace(day=28) + relativedelta(days=4)).replace(day=1) - relativedelta(days=1)
-    days_in_end_month = days_in_end_month.day
-    fraction = delta.days / days_in_end_month
+    days_in_end_month = calendar.monthrange(end_date.year, end_date.month)[1]
+    fraction = delta.days / days_in_end_month if days_in_end_month > 0 else 0
     return months + fraction
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -74,7 +74,7 @@ class CarRentalCoordinator:
         self.config = config
         self.stats: RentalStats | None = None
         self.current_odometer: float | None = None
-        self._listeners: list[callback] = []
+        self._listeners: list[Callable[[], None]] = []
         
         # Set up state change listener for odometer entity
         self._remove_listener = async_track_state_change_event(
@@ -145,7 +145,7 @@ class CarRentalCoordinator:
             overage_cost_per_km=self.config[CONF_OVERAGE_COST_PER_KM],
         )
 
-    def add_listener(self, listener: callback) -> None:
+    def add_listener(self, listener: Callable[[], None]) -> None:
         """Add a listener for data updates."""
         self._listeners.append(listener)
 
