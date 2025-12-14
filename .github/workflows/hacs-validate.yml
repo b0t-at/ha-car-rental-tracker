@@ -2,6 +2,8 @@ name: Validate with HACS
 
 on:
   push:
+    branches: 
+      - main
   pull_request:
 
 jobs:
@@ -17,4 +19,4 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
-          ignore: wheels
+          ignore: brands
