@@ -53,7 +53,6 @@ This document provides a comprehensive overview of the Car Rental Tracker integr
 2. **manifest.json** (391 B)
    - Integration metadata
    - Dependency: python-dateutil>=2.8.0
-   - Version: 1.0.0
 
 3. **const.py** (1.6 KB)
    - Configuration keys
@@ -443,7 +442,3 @@ The Car Rental Tracker integration is **complete and production-ready**. It prov
 Users can now install and use this integration to effectively manage their car rental contracts and avoid unexpected charges.
 
 ---
-
-**Implementation Date**: November 2024  
-**Version**: 1.0.0  
-**Status**: ✅ COMPLETE  

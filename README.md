@@ -94,7 +94,7 @@ Example `manifest.json`:
   "issue_tracker": "https://github.com/b0t-at/ha-car-rental-tracker/issues",
   "codeowners": ["@Utesgui"],
   "requirements": [],
-  "version": "1.0.0",
+  "version": "x.x.x",
   "iot_class": "local_polling"
 }
 ```

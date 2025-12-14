@@ -297,16 +297,3 @@ Contributions are welcome! Please:
 3. Make your changes
 4. Submit a pull request
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](../../../LICENSE) file for details.
-
-## Changelog
-
-### Version 1.0.0
-- Initial release
-- Core functionality: tracking, calculations, and projections
-- Custom Lovelace card with visual dashboard
-- Monthly statistics
-- Status alerts and warnings
-- Cost projections
