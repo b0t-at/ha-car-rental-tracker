@@ -34,7 +34,7 @@ A comprehensive integration for managing long-term car rentals with KM allowance
 2. Click on **Integrations**
 3. Click the **three dots** in the top right corner
 4. Select **Custom repositories**
-5. Add this repository URL: `https://github.com/Utesgui/HA-plugins`
+5. Add this repository URL: `https://github.com/b0t-at/ha-car-rental-tracker`
 6. Select **Integration** as the category
 7. Click **Add**
 8. Find the desired plugin in HACS and click **Download**
@@ -90,8 +90,8 @@ Example `manifest.json`:
 {
   "domain": "your_plugin_name",
   "name": "Your Plugin Name",
-  "documentation": "https://github.com/Utesgui/HA-plugins",
-  "issue_tracker": "https://github.com/Utesgui/HA-plugins/issues",
+  "documentation": "https://github.com/b0t-at/ha-car-rental-tracker",
+  "issue_tracker": "https://github.com/b0t-at/ha-car-rental-tracker/issues",
   "codeowners": ["@Utesgui"],
   "requirements": [],
   "version": "1.0.0",
@@ -103,7 +103,7 @@ Example `manifest.json`:
 
 If you encounter any issues or have questions:
 
-1. Check the [Issues](https://github.com/Utesgui/HA-plugins/issues) page
+1. Check the [Issues](https://github.com/b0t-at/ha-car-rental-tracker/issues) page
 2. Create a new issue with detailed information about your problem
 
 ## Contributing

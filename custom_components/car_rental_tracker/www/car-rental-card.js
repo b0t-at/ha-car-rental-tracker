@@ -711,5 +711,5 @@ window.customCards.push({
   name: 'Car Rental Tracker Card',
   description: 'A card to display car rental contract tracking and KM management',
   preview: true,
-  documentationURL: 'https://github.com/Utesgui/HA-plugins/tree/main/custom_components/car_rental_tracker',
+  documentationURL: 'https://github.com/b0t-at/ha-car-rental-tracker/tree/main/custom_components/car_rental_tracker',
 });

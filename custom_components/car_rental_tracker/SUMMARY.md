@@ -258,7 +258,7 @@ Each sensor provides real-time or calculated data:
 
 ```
 1. HACS → Integrations → Custom Repositories
-2. Add: https://github.com/Utesgui/HA-plugins
+2. Add: https://github.com/b0t-at/ha-car-rental-tracker
 3. Search: "Car Rental Tracker"
 4. Click: Download
 5. Restart Home Assistant
@@ -399,7 +399,7 @@ _renderNewSection(sensors) {
 
 ### Resources
 - **Documentation**: See README.md, EXAMPLE.md, TECHNICAL.md
-- **Issues**: https://github.com/Utesgui/HA-plugins/issues
+- **Issues**: https://github.com/b0t-at/ha-car-rental-tracker/issues
 - **Home Assistant Docs**: https://developers.home-assistant.io/
 
 ### Common Issues

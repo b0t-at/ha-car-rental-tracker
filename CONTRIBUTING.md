@@ -29,8 +29,8 @@ Every integration must have a manifest file with the following structure:
 {
   "domain": "your_plugin_name",
   "name": "Your Plugin Display Name",
-  "documentation": "https://github.com/Utesgui/HA-plugins/tree/main/custom_components/your_plugin_name",
-  "issue_tracker": "https://github.com/Utesgui/HA-plugins/issues",
+  "documentation": "https://github.com/b0t-at/ha-car-rental-tracker/tree/main/custom_components/your_plugin_name",
+  "issue_tracker": "https://github.com/b0t-at/ha-car-rental-tracker/issues",
   "codeowners": ["@Utesgui"],
   "requirements": [],
   "dependencies": [],
@@ -120,7 +120,7 @@ All submissions will be reviewed for:
 ## Questions?
 
 If you have questions or need help, please:
-- Open an [Issue](https://github.com/Utesgui/HA-plugins/issues)
+- Open an [Issue](https://github.com/b0t-at/ha-car-rental-tracker/issues)
 - Refer to [Home Assistant's development documentation](https://developers.home-assistant.io/)
 
 ## Resources

@@ -47,7 +47,7 @@ A comprehensive Home Assistant integration for tracking car rental contracts wit
 2. Click on **Integrations**
 3. Click the **three dots** in the top right corner
 4. Select **Custom repositories**
-5. Add this repository URL: `https://github.com/Utesgui/HA-plugins`
+5. Add this repository URL: `https://github.com/b0t-at/ha-car-rental-tracker`
 6. Select **Integration** as the category
 7. Click **Add**
 8. Find **Car Rental Tracker** in HACS and click **Download**
@@ -285,7 +285,7 @@ The integration tracks which rental month you're in and calculates statistics fo
 ## Support
 
 For issues, feature requests, or questions:
-- Open an issue on [GitHub](https://github.com/Utesgui/HA-plugins/issues)
+- Open an issue on [GitHub](https://github.com/b0t-at/ha-car-rental-tracker/issues)
 - Check existing issues for solutions
 - Provide Home Assistant logs when reporting bugs
 
