@@ -177,7 +177,6 @@ class CarRentalSensorBase(SensorEntity):
             name=f"Car Rental Tracker ({entry.data[CONF_START_DATE]})",
             manufacturer="Car Rental Tracker",
             model="KM Tracker",
-            sw_version="1.0.0",
         )
 
     async def async_added_to_hass(self) -> None:
