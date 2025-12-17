@@ -193,7 +193,7 @@ class CarRentalSensorBase(SensorEntity):
 class CarRentalCurrentOdometerSensor(CarRentalSensorBase):
     """Sensor for current odometer reading."""
 
-    _attr_name = "Current Odometer"
+    _attr_translation_key = "current_odometer"
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
@@ -213,7 +213,7 @@ class CarRentalCurrentOdometerSensor(CarRentalSensorBase):
 class CarRentalTotalDrivenSensor(CarRentalSensorBase):
     """Sensor for total KM driven."""
 
-    _attr_name = "Total Driven"
+    _attr_translation_key = "total_driven"
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.TOTAL
@@ -235,7 +235,7 @@ class CarRentalTotalDrivenSensor(CarRentalSensorBase):
 class CarRentalKmAllowedSensor(CarRentalSensorBase):
     """Sensor for total KM allowed."""
 
-    _attr_name = "KM Allowed"
+    _attr_translation_key = "km_allowed"
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.TOTAL
@@ -257,7 +257,7 @@ class CarRentalKmAllowedSensor(CarRentalSensorBase):
 class CarRentalKmRemainingSensor(CarRentalSensorBase):
     """Sensor for remaining KM."""
 
-    _attr_name = "KM Remaining"
+    _attr_translation_key = "km_remaining"
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -279,7 +279,7 @@ class CarRentalKmRemainingSensor(CarRentalSensorBase):
 class CarRentalKmProjectedSensor(CarRentalSensorBase):
     """Sensor for projected KM at contract end."""
 
-    _attr_name = "KM Projected"
+    _attr_translation_key = "km_projected"
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -301,7 +301,7 @@ class CarRentalKmProjectedSensor(CarRentalSensorBase):
 class CarRentalTimeProgressSensor(CarRentalSensorBase):
     """Sensor for time progress percentage."""
 
-    _attr_name = "Time Progress"
+    _attr_translation_key = "time_progress"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:clock-outline"
@@ -322,7 +322,7 @@ class CarRentalTimeProgressSensor(CarRentalSensorBase):
 class CarRentalKmProgressSensor(CarRentalSensorBase):
     """Sensor for KM usage progress percentage."""
 
-    _attr_name = "KM Progress"
+    _attr_translation_key = "km_progress"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:percent"
@@ -343,7 +343,7 @@ class CarRentalKmProgressSensor(CarRentalSensorBase):
 class CarRentalMonthlyDrivenSensor(CarRentalSensorBase):
     """Sensor for KM driven this month."""
 
-    _attr_name = "Monthly Driven"
+    _attr_translation_key = "monthly_driven"
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -365,7 +365,7 @@ class CarRentalMonthlyDrivenSensor(CarRentalSensorBase):
 class CarRentalMonthlyRemainingSensor(CarRentalSensorBase):
     """Sensor for remaining KM this month."""
 
-    _attr_name = "Monthly Remaining"
+    _attr_translation_key = "monthly_remaining"
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -387,7 +387,7 @@ class CarRentalMonthlyRemainingSensor(CarRentalSensorBase):
 class CarRentalDaysRemainingSensor(CarRentalSensorBase):
     """Sensor for days remaining in contract."""
 
-    _attr_name = "Days Remaining"
+    _attr_translation_key = "days_remaining"
     _attr_native_unit_of_measurement = "days"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:calendar-clock"
@@ -408,7 +408,7 @@ class CarRentalDaysRemainingSensor(CarRentalSensorBase):
 class CarRentalProjectedOverageSensor(CarRentalSensorBase):
     """Sensor for projected overage KM."""
 
-    _attr_name = "Projected Overage"
+    _attr_translation_key = "projected_overage"
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -430,7 +430,7 @@ class CarRentalProjectedOverageSensor(CarRentalSensorBase):
 class CarRentalProjectedCostSensor(CarRentalSensorBase):
     """Sensor for projected overage cost."""
 
-    _attr_name = "Projected Cost"
+    _attr_translation_key = "projected_cost"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:currency-usd"
 
@@ -450,7 +450,7 @@ class CarRentalProjectedCostSensor(CarRentalSensorBase):
 class CarRentalStatusSensor(CarRentalSensorBase):
     """Sensor for overall rental status."""
 
-    _attr_name = "Status"
+    _attr_translation_key = "status"
     _attr_icon = "mdi:information"
 
     def __init__(self, coordinator: CarRentalCoordinator, entry: ConfigEntry) -> None:

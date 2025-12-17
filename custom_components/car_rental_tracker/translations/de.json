@@ -1,0 +1,88 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Car Rental Tracker einrichten",
+        "description": "Konfigurieren Sie die Verfolgung Ihres Mietwagenvertrags",
+        "data": {
+          "start_date": "Startdatum",
+          "end_date": "Enddatum",
+          "km_allowance_per_month": "KM-Freibetrag pro Monat",
+          "initial_odometer": "Anfangskilometerstand (KM)",
+          "overage_cost_per_km": "Mehrkosten pro KM",
+          "odometer_entity": "Kilometerzähler-Sensor"
+        }
+      }
+    },
+    "error": {
+      "invalid_date_range": "Enddatum muss nach dem Startdatum liegen",
+      "invalid_date_format": "Ungültiges Datumsformat"
+    },
+    "abort": {
+      "already_configured": "Dieser Mietwagen ist bereits konfiguriert"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Car Rental Tracker aktualisieren",
+        "description": "Aktualisieren Sie Ihre Mietwagenvertragskonfiguration",
+        "data": {
+          "start_date": "Startdatum",
+          "end_date": "Enddatum",
+          "km_allowance_per_month": "KM-Freibetrag pro Monat",
+          "initial_odometer": "Anfangskilometerstand (KM)",
+          "overage_cost_per_km": "Mehrkosten pro KM",
+          "odometer_entity": "Kilometerzähler-Sensor"
+        }
+      }
+    },
+    "error": {
+      "invalid_date_range": "Enddatum muss nach dem Startdatum liegen",
+      "invalid_date_format": "Ungültiges Datumsformat"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_odometer": {
+        "name": "Aktueller Kilometerstand"
+      },
+      "total_driven": {
+        "name": "Gesamt gefahren"
+      },
+      "km_allowed": {
+        "name": "KM erlaubt"
+      },
+      "km_remaining": {
+        "name": "KM verbleibend"
+      },
+      "km_projected": {
+        "name": "KM prognostiziert"
+      },
+      "time_progress": {
+        "name": "Zeitfortschritt"
+      },
+      "km_progress": {
+        "name": "KM-Fortschritt"
+      },
+      "monthly_driven": {
+        "name": "Monatlich gefahren"
+      },
+      "monthly_remaining": {
+        "name": "Monatlich verbleibend"
+      },
+      "days_remaining": {
+        "name": "Verbleibende Tage"
+      },
+      "projected_overage": {
+        "name": "Prognostizierte Überschreitung"
+      },
+      "projected_cost": {
+        "name": "Prognostizierte Kosten"
+      },
+      "status": {
+        "name": "Status"
+      }
+    }
+  }
+}

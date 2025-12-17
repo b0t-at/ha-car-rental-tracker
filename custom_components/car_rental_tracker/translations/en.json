@@ -41,5 +41,48 @@
       "invalid_date_range": "End date must be after start date",
       "invalid_date_format": "Invalid date format"
     }
+  },
+  "entity": {
+    "sensor": {
+      "current_odometer": {
+        "name": "Current Odometer"
+      },
+      "total_driven": {
+        "name": "Total Driven"
+      },
+      "km_allowed": {
+        "name": "KM Allowed"
+      },
+      "km_remaining": {
+        "name": "KM Remaining"
+      },
+      "km_projected": {
+        "name": "KM Projected"
+      },
+      "time_progress": {
+        "name": "Time Progress"
+      },
+      "km_progress": {
+        "name": "KM Progress"
+      },
+      "monthly_driven": {
+        "name": "Monthly Driven"
+      },
+      "monthly_remaining": {
+        "name": "Monthly Remaining"
+      },
+      "days_remaining": {
+        "name": "Days Remaining"
+      },
+      "projected_overage": {
+        "name": "Projected Overage"
+      },
+      "projected_cost": {
+        "name": "Projected Cost"
+      },
+      "status": {
+        "name": "Status"
+      }
+    }
   }
 }
