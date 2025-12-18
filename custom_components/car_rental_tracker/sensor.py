@@ -57,6 +57,7 @@ async def async_setup_entry(
         CarRentalMonthlyDrivenSensor(coordinator, entry),
         CarRentalMonthlyRemainingSensor(coordinator, entry),
         CarRentalDaysRemainingSensor(coordinator, entry),
+        CarRentalDaysElapsedSensor(coordinator, entry),
         CarRentalProjectedOverageSensor(coordinator, entry),
         CarRentalProjectedCostSensor(coordinator, entry),
         CarRentalStatusSensor(coordinator, entry),
@@ -402,6 +403,27 @@ class CarRentalDaysRemainingSensor(CarRentalSensorBase):
         """Return the state of the sensor."""
         if self.coordinator.stats:
             return self.coordinator.stats.days_remaining
+        return None
+
+
+class CarRentalDaysElapsedSensor(CarRentalSensorBase):
+    """Sensor for days elapsed in contract."""
+
+    _attr_name = "Days Elapsed"
+    _attr_native_unit_of_measurement = "days"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:calendar-check"
+
+    def __init__(self, coordinator: CarRentalCoordinator, entry: ConfigEntry) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_days_elapsed"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the state of the sensor."""
+        if self.coordinator.stats:
+            return self.coordinator.stats.days_elapsed
         return None
 
 
