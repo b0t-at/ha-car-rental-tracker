@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/b0t-at/ha-car-rental-tracker/compare/v1.2.0...v1.2.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* improve monthly stats calculation and testing for contract start scenarios ([ce2bfbd](https://github.com/b0t-at/ha-car-rental-tracker/commit/ce2bfbd870864e7bed70a3ca96d82d41d45d939d))
+* improve monthly stats calculation and testing for contract start scenarios ([8c62e54](https://github.com/b0t-at/ha-car-rental-tracker/commit/8c62e54b742fb1e25a56d5a46aeac480cc091c27))
+
 ## [1.2.0](https://github.com/b0t-at/ha-car-rental-tracker/compare/v1.1.2...v1.2.0) (2026-03-13)
 
 
