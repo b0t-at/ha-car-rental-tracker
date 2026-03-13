@@ -1,12 +1,19 @@
 {
   "domain": "car_rental_tracker",
   "name": "Car Rental Tracker",
-  "codeowners": ["@Utesgui"],
+  "codeowners": [
+    "@Utesgui"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "recorder"],
+  "dependencies": [
+    "http",
+    "recorder"
+  ],
   "documentation": "https://github.com/b0t-at/ha-car-rental-tracker/tree/main/custom_components/car_rental_tracker",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/b0t-at/ha-car-rental-tracker/issues",
-  "requirements": ["python-dateutil>=2.8.0"],
-  "version": "1.1.2"
+  "requirements": [
+    "python-dateutil>=2.8.0"
+  ],
+  "version": "1.2.0"
 }
