@@ -212,6 +212,7 @@ class TestCalculateMonthlyStats:
             km_allowance_per_month=1000.0,
             initial_odometer=10000.0,
             current_odometer=10500.0,
+            odometer_at_month_start=10000.0,
         )
 
         assert stats["driven"] == 500.0
@@ -225,13 +226,14 @@ class TestCalculateMonthlyStats:
             current_date=date(2024, 2, 15),
             km_allowance_per_month=1000.0,
             initial_odometer=10000.0,
-            current_odometer=11500.0,  # 1500 total, 500 in current month
+            current_odometer=11500.0,
+            odometer_at_month_start=11000.0,
         )
 
         # Should show stats for second rental month
         assert stats["allowance"] == 1000.0
-        # Driven in this month should be approximately 500
-        assert 400 <= stats["driven"] <= 600
+        # Driven since 1st Feb = 11500 - 11000 = 500
+        assert stats["driven"] == 500.0
 
     def test_over_monthly_allowance(self):
         """Test when current month allowance exceeded."""
@@ -240,11 +242,26 @@ class TestCalculateMonthlyStats:
             current_date=date(2024, 1, 15),
             km_allowance_per_month=1000.0,
             initial_odometer=10000.0,
-            current_odometer=11500.0,  # 1500 in first month
+            current_odometer=11500.0,
+            odometer_at_month_start=10000.0,
         )
 
         assert stats["driven"] == 1500.0
         assert stats["remaining"] == 0.0  # Should not go negative
+
+    def test_fallback_without_month_start(self):
+        """Test fallback to daily average when no month-start odometer."""
+        stats = calculate_monthly_stats(
+            start_date=date(2024, 1, 1),
+            current_date=date(2024, 1, 15),
+            km_allowance_per_month=1000.0,
+            initial_odometer=10000.0,
+            current_odometer=10500.0,
+        )
+
+        # Without odometer_at_month_start, uses daily average fallback
+        assert stats["driven"] > 0
+        assert stats["allowance"] == 1000.0
 
 
 class TestEdgeCases:

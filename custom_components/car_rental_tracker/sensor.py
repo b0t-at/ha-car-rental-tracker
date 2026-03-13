@@ -132,6 +132,9 @@ class CarRentalCoordinator:
                 )
                 return
         
+        # Get odometer at month start from recorder history
+        odometer_at_month_start = await self._get_odometer_at_month_start()
+        
         # Parse dates
         start_date = datetime.fromisoformat(self.config[CONF_START_DATE]).date()
         end_date = datetime.fromisoformat(self.config[CONF_END_DATE]).date()
@@ -144,7 +147,65 @@ class CarRentalCoordinator:
             initial_odometer=self.config[CONF_INITIAL_ODOMETER],
             current_odometer=self.current_odometer,
             overage_cost_per_km=self.config[CONF_OVERAGE_COST_PER_KM],
+            odometer_at_month_start=odometer_at_month_start,
         )
+
+    async def _get_odometer_at_month_start(self) -> float | None:
+        """Get the odometer reading at the 1st of the current month from recorder history."""
+        try:
+            from homeassistant.components.recorder import get_instance
+
+            entity_id = self.config[CONF_ODOMETER_ENTITY]
+            first_of_month = datetime.combine(
+                date.today().replace(day=1), datetime.min.time()
+            )
+
+            history = await get_instance(self.hass).async_add_executor_job(
+                self._get_state_at_time, entity_id, first_of_month
+            )
+            return history
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug(
+                "Could not retrieve odometer history for month start, using fallback"
+            )
+            return None
+
+    def _get_state_at_time(self, entity_id: str, point_in_time: datetime) -> float | None:
+        """Query recorder for the entity state at a point in time (runs in executor)."""
+        from homeassistant.components.recorder.history import state_changes_during_period
+
+        # Get states right around the start of the month
+        # We look for the last state change before or at the 1st of the month
+        end_time = point_in_time + timedelta(minutes=1)
+        states = state_changes_during_period(
+            self.hass,
+            point_in_time - timedelta(days=1),
+            end_time,
+            entity_id,
+            no_attributes=True,
+        )
+
+        entity_states = states.get(entity_id, [])
+        if entity_states:
+            # Use the last state at or before the 1st of the month
+            for state in reversed(entity_states):
+                try:
+                    return float(state.state)
+                except (ValueError, TypeError):
+                    continue
+
+        # Fallback: get the most recent state before the 1st
+        from homeassistant.components.recorder.history import get_last_state_changes
+        last_states = get_last_state_changes(self.hass, 1, entity_id)
+        # If available, these are old states – use them as approximation
+        for state in last_states.get(entity_id, []):
+            if state.last_updated <= point_in_time:
+                try:
+                    return float(state.state)
+                except (ValueError, TypeError):
+                    continue
+
+        return None
 
     def add_listener(self, listener: Callable[[], None]) -> None:
         """Add a listener for data updates."""
