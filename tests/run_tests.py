@@ -63,11 +63,11 @@ class TestCalculateDailyAverage:
 
     def test_normal_usage(self):
         """Test normal daily average calculation."""
-        assert calculate_daily_average(100.0, 10) == 10.0
+        assert calculate_daily_average(100.0, 10) == pytest.approx(10.0)
 
     def test_zero_days(self):
         """Test with zero days elapsed."""
-        assert calculate_daily_average(50.0, 0) == 0.0
+        assert calculate_daily_average(50.0, 0) == pytest.approx(0.0)
 
     def test_fractional_result(self):
         """Test with result requiring decimal."""
@@ -112,8 +112,8 @@ class TestCalculateRentalStats:
             overage_cost_per_km=0.25,
         )
 
-        assert stats.total_driven_km == 0.0
-        assert stats.km_progress == 0.0
+        assert stats.total_driven_km == pytest.approx(0.0)
+        assert stats.km_progress == pytest.approx(0.0)
         assert stats.km_projected >= 0.0
         assert stats.status == "ok"
 
@@ -130,7 +130,7 @@ class TestCalculateRentalStats:
             overage_cost_per_km=0.25,
         )
 
-        assert stats.total_driven_km == 6000.0
+        assert stats.total_driven_km == pytest.approx(6000.0)
         # Should have approximately 12000 km allowed for full year
         assert stats.km_allowed == pytest.approx(12000.0, abs=100)
         assert stats.status in ["ok", "warning"]  # Depends on exact calculation
@@ -146,7 +146,7 @@ class TestCalculateRentalStats:
             overage_cost_per_km=0.25,
         )
 
-        assert stats.total_driven_km == 15000.0
+        assert stats.total_driven_km == pytest.approx(15000.0)
         assert stats.is_over_limit is True
         assert stats.status == "critical"
         assert stats.km_remaining < 0
@@ -163,12 +163,12 @@ class TestCalculateRentalStats:
             overage_cost_per_km=0.50,
         )
 
-        assert stats.total_driven_km == 4000.0
+        assert stats.total_driven_km == pytest.approx(4000.0)
         # If continuing at this pace, should be projected over
         if stats.is_projected_over:
             assert stats.projected_overage_km > 0
             assert stats.projected_cost > 0
-            assert stats.projected_cost == stats.projected_overage_km * 0.50
+            assert stats.projected_cost == pytest.approx(stats.projected_overage_km * 0.50)
 
     def test_time_vs_km_progress(self):
         """Test comparison of time vs KM progress."""
@@ -198,7 +198,7 @@ class TestCalculateRentalStats:
 
         assert stats.days_remaining == 0
         assert stats.time_progress >= 100
-        assert stats.total_driven_km == 10000.0
+        assert stats.total_driven_km == pytest.approx(10000.0)
 
 
 class TestCalculateMonthlyStats:
@@ -215,9 +215,9 @@ class TestCalculateMonthlyStats:
             odometer_at_month_start=10000.0,
         )
 
-        assert stats["driven"] == 500.0
-        assert stats["remaining"] == 500.0
-        assert stats["allowance"] == 1000.0
+        assert stats["driven"] == pytest.approx(500.0)
+        assert stats["remaining"] == pytest.approx(500.0)
+        assert stats["allowance"] == pytest.approx(1000.0)
 
     def test_second_month(self):
         """Test monthly stats in second month."""
@@ -231,9 +231,9 @@ class TestCalculateMonthlyStats:
         )
 
         # Should show stats for second rental month
-        assert stats["allowance"] == 1000.0
+        assert stats["allowance"] == pytest.approx(1000.0)
         # Driven since 1st Feb = 11500 - 11000 = 500
-        assert stats["driven"] == 500.0
+        assert stats["driven"] == pytest.approx(500.0)
 
     def test_over_monthly_allowance(self):
         """Test when current month allowance exceeded."""
@@ -246,8 +246,23 @@ class TestCalculateMonthlyStats:
             odometer_at_month_start=10000.0,
         )
 
-        assert stats["driven"] == 1500.0
-        assert stats["remaining"] == 0.0  # Should not go negative
+        assert stats["driven"] == pytest.approx(1500.0)
+        assert stats["remaining"] == pytest.approx(0.0)  # Should not go negative
+
+    def test_contract_started_this_month_uses_initial_odometer(self):
+        """Test that pre-contract history is ignored when the rental started this month."""
+        stats = calculate_monthly_stats(
+            start_date=date(2024, 2, 10),
+            current_date=date(2024, 2, 15),
+            km_allowance_per_month=1000.0,
+            initial_odometer=12000.0,
+            current_odometer=12300.0,
+            odometer_at_month_start=11800.0,
+        )
+
+        # Monthly driven should only include distance since the contract started.
+        assert stats["driven"] == pytest.approx(300.0)
+        assert stats["remaining"] == pytest.approx(700.0)
 
     def test_fallback_without_month_start(self):
         """Test fallback to daily average when no month-start odometer."""
@@ -261,7 +276,7 @@ class TestCalculateMonthlyStats:
 
         # Without odometer_at_month_start, uses daily average fallback
         assert stats["driven"] > 0
-        assert stats["allowance"] == 1000.0
+        assert stats["allowance"] == pytest.approx(1000.0)
 
 
 class TestEdgeCases:
@@ -279,7 +294,7 @@ class TestEdgeCases:
         )
 
         # Should handle gracefully, probably show 0 driven
-        assert stats.total_driven_km == 0.0
+        assert stats.total_driven_km == pytest.approx(0.0)
 
     def test_very_short_contract(self):
         """Test with a very short contract period."""
@@ -292,7 +307,7 @@ class TestEdgeCases:
             overage_cost_per_km=0.25,
         )
 
-        assert stats.total_driven_km == 100.0
+        assert stats.total_driven_km == pytest.approx(100.0)
         # Should still calculate correctly for short period
         assert stats.days_total == 7
 
@@ -322,7 +337,7 @@ class TestEdgeCases:
             overage_cost_per_km=0.0,
         )
 
-        assert stats.projected_cost == 0.0
+        assert stats.projected_cost == pytest.approx(0.0)
         # Even with overage, cost is 0
         assert stats.is_over_limit is True
 

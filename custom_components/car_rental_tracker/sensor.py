@@ -17,6 +17,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util import dt as dt_util
 
 from .calculations import calculate_rental_stats, RentalStats
 from .const import (
@@ -75,6 +76,7 @@ class CarRentalCoordinator:
         self.config = config
         self.stats: RentalStats | None = None
         self.current_odometer: float | None = None
+        self.monthly_baseline_source = "estimated_fallback"
         self._listeners: list[Callable[[], None]] = []
         
         # Set up state change listener for odometer entity
@@ -113,6 +115,8 @@ class CarRentalCoordinator:
 
     async def async_update(self) -> None:
         """Update the coordinator data."""
+        today = dt_util.now().date()
+
         # Get current odometer reading
         if self.current_odometer is None:
             odometer_state = self.hass.states.get(self.config[CONF_ODOMETER_ENTITY])
@@ -132,12 +136,21 @@ class CarRentalCoordinator:
                 )
                 return
         
-        # Get odometer at month start from recorder history
-        odometer_at_month_start = await self._get_odometer_at_month_start()
-        
         # Parse dates
         start_date = datetime.fromisoformat(self.config[CONF_START_DATE]).date()
         end_date = datetime.fromisoformat(self.config[CONF_END_DATE]).date()
+
+        # Get odometer at month start from recorder history when the contract
+        # began before the current month. Otherwise the initial odometer is the
+        # correct monthly baseline.
+        first_of_month = today.replace(day=1)
+        odometer_at_month_start = None
+        self.monthly_baseline_source = "initial_odometer"
+        if start_date < first_of_month:
+            (
+                odometer_at_month_start,
+                self.monthly_baseline_source,
+            ) = await self._get_odometer_at_month_start()
         
         # Calculate statistics
         self.stats = calculate_rental_stats(
@@ -150,60 +163,130 @@ class CarRentalCoordinator:
             odometer_at_month_start=odometer_at_month_start,
         )
 
-    async def _get_odometer_at_month_start(self) -> float | None:
+    async def _get_odometer_at_month_start(self) -> tuple[float | None, str]:
         """Get the odometer reading at the 1st of the current month from recorder history."""
         try:
             from homeassistant.components.recorder import get_instance
 
             entity_id = self.config[CONF_ODOMETER_ENTITY]
-            first_of_month = datetime.combine(
-                date.today().replace(day=1), datetime.min.time()
+            first_of_month_local = dt_util.now().replace(
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
             )
+            first_of_month = dt_util.as_utc(first_of_month_local)
+            now = dt_util.utcnow()
 
             history = await get_instance(self.hass).async_add_executor_job(
-                self._get_state_at_time, entity_id, first_of_month
+                self._get_state_at_time,
+                entity_id,
+                first_of_month,
+                now,
             )
             return history
         except Exception:  # noqa: BLE001
             _LOGGER.debug(
                 "Could not retrieve odometer history for month start, using fallback"
             )
-            return None
+            return None, "estimated_fallback"
 
-    def _get_state_at_time(self, entity_id: str, point_in_time: datetime) -> float | None:
+    def _get_state_at_time(
+        self,
+        entity_id: str,
+        point_in_time: datetime,
+        end_time: datetime,
+    ) -> tuple[float | None, str]:
         """Query recorder for the entity state at a point in time (runs in executor)."""
-        from homeassistant.components.recorder.history import state_changes_during_period
+        from homeassistant.components.recorder.history import (
+            get_last_state_changes,
+            state_changes_during_period,
+        )
 
-        # Get states right around the start of the month
-        # We look for the last state change before or at the 1st of the month
-        end_time = point_in_time + timedelta(minutes=1)
+        # Fetch a window covering the prior month and the current month so we can
+        # use the last known state at the boundary or, if none exists, the first
+        # state reported after the boundary.
+        query_start = point_in_time - timedelta(days=35)
         states = state_changes_during_period(
             self.hass,
-            point_in_time - timedelta(days=1),
+            query_start,
             end_time,
             entity_id,
             no_attributes=True,
         )
 
-        entity_states = states.get(entity_id, [])
-        if entity_states:
-            # Use the last state at or before the 1st of the month
-            for state in reversed(entity_states):
-                try:
-                    return float(state.state)
-                except (ValueError, TypeError):
-                    continue
+        entity_states = sorted(
+            states.get(entity_id, []),
+            key=lambda state: state.last_updated,
+        )
+        month_start_state, source = self._find_best_boundary_state(
+            entity_states,
+            point_in_time,
+        )
+        if month_start_state is not None:
+            return month_start_state, source
 
-        # Fallback: get the most recent state before the 1st
-        from homeassistant.components.recorder.history import get_last_state_changes
+        # Final fallback for very stale sensors: use the latest recorded value if
+        # it predates the month boundary.
         last_states = get_last_state_changes(self.hass, 1, entity_id)
-        # If available, these are old states – use them as approximation
-        for state in last_states.get(entity_id, []):
+        fallback_state = self._find_latest_state_before_boundary(
+            last_states.get(entity_id, []),
+            point_in_time,
+        )
+        if fallback_state is not None:
+            return fallback_state, "history_before_month_start"
+
+        return None, "estimated_fallback"
+
+    @staticmethod
+    def _parse_state_value(state: Any) -> float | None:
+        """Convert a recorder state object to a float when possible."""
+        try:
+            return float(state.state)
+        except (ValueError, TypeError):
+            return None
+
+    def _find_best_boundary_state(
+        self,
+        states: list[Any],
+        point_in_time: datetime,
+    ) -> tuple[float | None, str]:
+        """Return the best available state around the requested point in time."""
+        last_state_before_boundary: float | None = None
+
+        for state in states:
+            state_value = self._parse_state_value(state)
+            if state_value is None:
+                continue
+
             if state.last_updated <= point_in_time:
-                try:
-                    return float(state.state)
-                except (ValueError, TypeError):
-                    continue
+                last_state_before_boundary = state_value
+                continue
+
+            if last_state_before_boundary is not None:
+                return last_state_before_boundary, "history_before_month_start"
+
+            return state_value, "history_after_month_start"
+
+        if last_state_before_boundary is not None:
+            return last_state_before_boundary, "history_before_month_start"
+
+        return None, "estimated_fallback"
+
+    def _find_latest_state_before_boundary(
+        self,
+        states: list[Any],
+        point_in_time: datetime,
+    ) -> float | None:
+        """Return the latest valid state that predates the requested point in time."""
+        for state in states:
+            if state.last_updated > point_in_time:
+                continue
+
+            state_value = self._parse_state_value(state)
+            if state_value is not None:
+                return state_value
 
         return None
 
@@ -422,6 +505,13 @@ class CarRentalMonthlyDrivenSensor(CarRentalSensorBase):
         if self.coordinator.stats:
             return self.coordinator.stats.monthly_driven_km
         return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return debug details for the monthly baseline calculation."""
+        return {
+            "monthly_baseline_source": self.coordinator.monthly_baseline_source,
+        }
 
 
 class CarRentalMonthlyRemainingSensor(CarRentalSensorBase):

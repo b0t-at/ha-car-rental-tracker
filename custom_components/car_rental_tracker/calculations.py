@@ -161,15 +161,22 @@ def calculate_monthly_stats(
     Returns:
         Dictionary with monthly statistics
     """
-    # Use exact odometer difference since start of this calendar month
-    if odometer_at_month_start is not None:
+    first_of_month = current_date.replace(day=1)
+
+    # If the contract started this month, the configured initial odometer is the
+    # authoritative baseline. Using recorder history from before the contract
+    # would incorrectly count pre-contract driving.
+    if start_date >= first_of_month:
+        driven_this_month = max(current_odometer - initial_odometer, 0)
+    # Use exact odometer difference since start of this calendar month when a
+    # baseline reading is available from recorder history.
+    elif odometer_at_month_start is not None:
         driven_this_month = max(current_odometer - odometer_at_month_start, 0)
     else:
         # Fallback: use daily average estimate when no stored month-start value
-        total_driven = current_odometer - initial_odometer
+        total_driven = max(current_odometer - initial_odometer, 0)
         total_days_elapsed = (current_date - start_date).days + 1
         daily_average = total_driven / total_days_elapsed if total_days_elapsed > 0 else 0
-        first_of_month = current_date.replace(day=1)
         days_this_month = (current_date - first_of_month).days + 1
         driven_this_month = daily_average * days_this_month
 
