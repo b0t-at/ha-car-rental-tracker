@@ -121,15 +121,11 @@ class CarRentalTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> CarRentalTrackerOptionsFlow:
         """Get the options flow for this handler."""
-        return CarRentalTrackerOptionsFlow(config_entry)
+        return CarRentalTrackerOptionsFlow()
 
 
 class CarRentalTrackerOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Car Rental Tracker."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
