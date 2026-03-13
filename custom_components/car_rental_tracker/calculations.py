@@ -36,6 +36,7 @@ def calculate_rental_stats(
     initial_odometer: float,
     current_odometer: float,
     overage_cost_per_km: float,
+    odometer_at_month_start: float | None = None,
 ) -> RentalStats:
     """Calculate all rental statistics.
     
@@ -80,7 +81,8 @@ def calculate_rental_stats(
     
     # Calculate monthly statistics
     monthly_stats = calculate_monthly_stats(
-        start_date, today, km_allowance_per_month, initial_odometer, current_odometer
+        start_date, today, km_allowance_per_month, initial_odometer, current_odometer,
+        odometer_at_month_start=odometer_at_month_start,
     )
     
     # Calculate overage and cost
@@ -144,6 +146,7 @@ def calculate_monthly_stats(
     km_allowance_per_month: float,
     initial_odometer: float,
     current_odometer: float,
+    odometer_at_month_start: float | None = None,
 ) -> dict[str, float]:
     """Calculate statistics for the current month.
     
@@ -153,33 +156,23 @@ def calculate_monthly_stats(
         km_allowance_per_month: Monthly KM allowance
         initial_odometer: Initial odometer reading
         current_odometer: Current odometer reading
+        odometer_at_month_start: Odometer reading at the 1st of the current month
         
     Returns:
         Dictionary with monthly statistics
     """
-    # Calculate which month we're in (1-indexed)
-    months_elapsed = calculate_months_between(start_date, current_date)
-    current_month_index = int(months_elapsed)
-    
-    # Calculate start of current rental month
-    current_month_start = start_date + relativedelta(months=current_month_index)
-    
-    # For the first month, use the actual start date
-    if current_month_index == 0:
-        month_start_date = start_date
+    # Use exact odometer difference since start of this calendar month
+    if odometer_at_month_start is not None:
+        driven_this_month = max(current_odometer - odometer_at_month_start, 0)
     else:
-        month_start_date = current_month_start
-    
-    # Calculate expected odometer at start of this month
-    expected_at_month_start = initial_odometer + (current_month_index * km_allowance_per_month)
-    
-    # Calculate driven this month
-    total_driven = current_odometer - initial_odometer
-    expected_driven_so_far = months_elapsed * km_allowance_per_month
-    
-    # Monthly driven is the portion driven in current month
-    driven_this_month = max(total_driven - (current_month_index * km_allowance_per_month), 0)
-    
+        # Fallback: use daily average estimate when no stored month-start value
+        total_driven = current_odometer - initial_odometer
+        total_days_elapsed = (current_date - start_date).days + 1
+        daily_average = total_driven / total_days_elapsed if total_days_elapsed > 0 else 0
+        first_of_month = current_date.replace(day=1)
+        days_this_month = (current_date - first_of_month).days + 1
+        driven_this_month = daily_average * days_this_month
+
     # Remaining this month
     remaining_this_month = max(km_allowance_per_month - driven_this_month, 0)
     

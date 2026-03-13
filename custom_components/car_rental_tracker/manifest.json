@@ -3,7 +3,7 @@
   "name": "Car Rental Tracker",
   "codeowners": ["@Utesgui"],
   "config_flow": true,
-  "dependencies": ["http"],
+  "dependencies": ["http", "recorder"],
   "documentation": "https://github.com/b0t-at/ha-car-rental-tracker/tree/main/custom_components/car_rental_tracker",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/b0t-at/ha-car-rental-tracker/issues",
