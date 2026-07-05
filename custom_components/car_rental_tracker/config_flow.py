@@ -59,7 +59,7 @@ def _get_schema(data: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_ODOMETER_ENTITY,
                 default=data.get(CONF_ODOMETER_ENTITY, ""),
             ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor"])
+                selector.EntitySelectorConfig(domain=["sensor", "input_number"])
             ),
         }
     )
