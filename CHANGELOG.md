@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/b0t-at/ha-car-rental-tracker/compare/v1.2.1...v1.3.0) (2026-07-05)
+
+
+### Features
+
+* allow input_number entities as data source ([#17](https://github.com/b0t-at/ha-car-rental-tracker/issues/17)) ([0e3a76e](https://github.com/b0t-at/ha-car-rental-tracker/commit/0e3a76e0cd4bcd7f81aa88f33f0fb991c4cf1957))
+
 ## [1.2.1](https://github.com/b0t-at/ha-car-rental-tracker/compare/v1.2.0...v1.2.1) (2026-03-13)
 
 
