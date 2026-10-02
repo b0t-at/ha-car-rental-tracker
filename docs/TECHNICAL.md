@@ -192,7 +192,7 @@ GitHub Actions workflows in `.github/workflows/`:
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `tests.yml` | push to `main`, pull requests | Python 3.13, installs `tests/requirements.txt`, runs `pytest tests -v` |
+| `tests.yml` | push to `main`, pull requests | Python 3.14, installs `tests/requirements.txt`, runs `pytest tests -v` |
 | `hacs-validate.yml` | push to `main`, pull requests | HACS validation |
 | `hassfest-validate.yml` | push to `main`, pull requests | Home Assistant hassfest validation |
 | `release.yml` | push to `main` | release-please |
