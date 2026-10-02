@@ -12,12 +12,19 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfTime
+from homeassistant.const import UnitOfLength, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+try:
+    from homeassistant.const import UnitOfRatio
+
+    PERCENTAGE: str = UnitOfRatio.PERCENTAGE
+except ImportError:  # Home Assistant < 2026.7
+    from homeassistant.const import PERCENTAGE
 
 from . import CarRentalCoordinator, CarRentalData
 from .calculations import STATUS_CRITICAL, STATUS_OK, STATUS_WARNING
