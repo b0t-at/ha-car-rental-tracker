@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.0](https://github.com/b0t-at/ha-car-rental-tracker/compare/v1.3.0...v1.4.0) (2026-10-02)
+
+
+### Features
+
+* german localization ([#27](https://github.com/b0t-at/ha-car-rental-tracker/issues/27)) ([4a4e430](https://github.com/b0t-at/ha-car-rental-tracker/commit/4a4e430e455bfcf70356ac1c40b3bc268907c0d9))
+
+
+### Bug Fixes
+
+* misc issues ([#21](https://github.com/b0t-at/ha-car-rental-tracker/issues/21)) ([be9c50d](https://github.com/b0t-at/ha-car-rental-tracker/commit/be9c50dce72f89318ea1bce1f7a182726910f627))
+* python and HA migrations ([#26](https://github.com/b0t-at/ha-car-rental-tracker/issues/26)) ([5460002](https://github.com/b0t-at/ha-car-rental-tracker/commit/5460002363f57a7fb960ad71fe4d1ad7f8d0cfe7))
+
 ## [1.3.0](https://github.com/b0t-at/ha-car-rental-tracker/compare/v1.2.1...v1.3.0) (2026-07-05)
 
 
