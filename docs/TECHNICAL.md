@@ -1,477 +1,255 @@
 # Car Rental Tracker - Technical Documentation
 
-## Architecture Overview
+## Architecture overview
 
-The Car Rental Tracker is a complete Home Assistant custom integration that consists of two main components:
+Car Rental Tracker is a Home Assistant custom integration with two parts:
 
-1. **Backend Integration (Python)**: Handles data management, calculations, and sensor entities
-2. **Frontend Card (JavaScript)**: Provides visual dashboard interface
+1. **Backend (Python)**: config flow, update coordinator, calculations and sensor entities
+2. **Frontend card (JavaScript)**: a Lovelace card that the integration serves and loads automatically
 
-## Backend Architecture
+Minimum Home Assistant version: 2024.12.0.
 
-### Component Structure
+## Backend
+
+### Files
 
 ```
 custom_components/car_rental_tracker/
-├── __init__.py                  # Integration entry point
-├── manifest.json                # Integration metadata
-├── const.py                     # Constants and configuration keys
-├── config_flow.py              # UI-based configuration
-├── calculations.py             # Core calculation logic
-├── sensor.py                   # Sensor entities
-├── strings.json                # UI strings
-└── translations/
-    └── en.json                 # English translations
+├── __init__.py          # Entry setup/unload, coordinator, serves and auto-loads the card
+├── manifest.json        # Integration metadata (version is managed by release-please)
+├── const.py             # Constants and configuration keys
+├── config_flow.py       # UI config flow and options flow
+├── calculations.py      # Contract calculations (no Home Assistant imports)
+├── baseline.py          # Month-start baseline selection and storage format (no Home Assistant imports)
+├── sensor.py            # Sensor descriptions (SENSOR_DESCRIPTIONS) and the sensor entity
+├── strings.json         # UI and entity translation strings
+├── translations/
+│   └── en.json          # English translations
+└── www/
+    └── car-rental-card.js   # Lovelace card
 ```
 
-### Key Classes
+`calculations.py` and `baseline.py` don't import Home Assistant, so they can be unit tested without it.
 
-#### 1. CarRentalCoordinator (sensor.py)
-- **Purpose**: Central data coordinator that manages state and calculations
-- **Responsibilities**:
-  - Monitor odometer sensor changes
-  - Perform periodic updates (every 5 minutes)
-  - Calculate rental statistics
-  - Notify sensor entities of updates
-- **Pattern**: Observer pattern for sensor updates
+### Key parts
 
-#### 2. RentalStats (calculations.py)
-- **Purpose**: Immutable data container for all calculated statistics
-- **Implementation**: NamedTuple for performance and immutability
-- **Fields**: 17 calculated values including KM stats, progress, and projections
+#### CarRentalCoordinator (__init__.py)
+- A `DataUpdateCoordinator`, one per config entry, stored in `entry.runtime_data`
+- Listens for state changes of the odometer entity and recalculates every 5 minutes, so date-based values (days, time progress) stay current
+- Remembers the last two valid odometer readings and keeps using the last valid one while the entity is unavailable or not numeric
+- Determines the month-start odometer reading from those readings and the recorder history, and persists it (see [Monthly statistics](#monthly-statistics))
+- Calls `calculate_rental_stats()` and provides a `CarRentalData` (stats, current odometer, `monthly_baseline`, `monthly_baseline_source`), or `None` until there has been a valid reading
 
-#### 3. Sensor Entities (sensor.py)
-- **Count**: 13 individual sensor entities
-- **Base Class**: CarRentalSensorBase
-- **Update Method**: Push-based (via coordinator notifications)
-- **Features**: 
-  - Proper device class assignments
-  - State class for statistics
-  - Unit of measurement
-  - Icon assignments
+#### RentalStats (calculations.py)
+- `NamedTuple` holding all calculated values: KM totals, progress, monthly values, day counts, projections and status
 
-### Calculation Engine
+#### Sensor entities (sensor.py)
+- Each sensor is a `CarRentalSensorEntityDescription` in `SENSOR_DESCRIPTIONS` with a `value_fn` (and optionally an `attributes_fn`) that reads `CarRentalData`. One entity class, `CarRentalSensor`, serves all of them.
+- 15 sensors per config entry, all on one device named `Car Rental Tracker (<start date>)`. The unique id is `<entry_id>_<key>`.
+- Push-based: they update when the coordinator notifies them; they don't poll. They are unavailable while the coordinator data is `None`.
+- `has_entity_name` is set and each sensor has a `translation_key` equal to its key (`current_odometer`, `total_driven`, `km_allowed`, `km_remaining`, `km_projected`, `time_progress`, `km_progress`, `monthly_driven`, `monthly_remaining`, `monthly_allowance`, `days_remaining`, `days_elapsed`, `projected_overage`, `projected_cost`, `status`). Entity ids therefore look like `sensor.car_rental_tracker_2024_01_01_km_remaining`. Home Assistant creates the entity ids once; changing the start date later renames the device but keeps the existing ids.
+- Status is an `enum` sensor with the options `ok`, `warning` and `critical` (translated). Its attributes are `is_over_limit`, `is_projected_over`, `days_elapsed` and `days_total`.
+- Distance sensors use the `distance` device class and km. Current Odometer is `total_increasing`, Total Driven is `total`, and the other distance sensors (including KM Allowed) are `measurement`.
+- Days Remaining and Days Elapsed use the `duration` device class with the unit `d`.
+- Projected Cost is a `monetary` sensor without a state class; its unit is the Home Assistant currency (`hass.config.currency`).
+- Monthly Driven has the attributes `monthly_baseline` (the month-start odometer reading from history; empty when the initial odometer or the estimate is used) and `monthly_baseline_source` (where the month-start reading came from).
 
-#### Core Functions
+### Calculations
 
-1. **calculate_rental_stats()** - Main calculation function
-   - Inputs: Contract details, odometer readings, cost parameters
-   - Output: RentalStats container with all metrics
-   - Updates: Called on odometer change and every 5 minutes
+All calculations are in `calculations.py`. `calculate_rental_stats()` takes an optional keyword argument `today`; the coordinator passes the current date in Home Assistant's time zone, and tests pass fixed dates.
 
-2. **calculate_months_between()** - Time calculation
-   - Uses relativedelta for accurate month calculations
-   - Handles fractional months using calendar.monthrange()
-   - Accounts for different month lengths
+#### Contract period
 
-3. **calculate_monthly_stats()** - Monthly breakdown
-   - Tracks rental months (not calendar months)
-   - Calculates driven/remaining for current rental month
-   - Handles month boundaries
+- The end date is **inclusive**: `days_total = (end - start).days + 1`, and a contract from Jan 1 to Dec 31 is exactly 12 months.
+- `calculate_months_between(start, end_exclusive)` counts whole months with `relativedelta`. Leftover days are divided by the length of the month-long period they fall in (anchored on the start date), so the result never decreases when the end date moves later.
+- `km_allowed = km_allowance_per_month × calculate_months_between(start, end + 1 day)`
+- Before the start date: `days_elapsed = 0`, `time_progress = 0`, `days_remaining = days_total`, status `ok`.
 
-4. **calculate_daily_average()** - Pace calculation
-   - Simple average: total_driven / days_elapsed
-   - Used for projections
+#### Progress and projection
 
-5. **is_on_pace()** - Status evaluation
-   - Compares KM progress vs time progress
-   - Configurable tolerance (default 5%)
+```
+time_progress = days_elapsed / days_total × 100      (clamped to 0..100)
+km_progress   = total_driven / km_allowed × 100
+km_projected  = total_driven + (total_driven / days_elapsed) × days_remaining
+projected_overage = max(km_projected - km_allowed, 0)
+projected_cost    = projected_overage × overage_cost_per_km
+```
 
-#### Status Logic
+`days_elapsed` counts the start day as day 1.
+
+#### Status
 
 ```python
-if is_over_limit or km_progress >= 100:
-    status = "critical"
+if not has_started:
+    status = STATUS_OK
+elif is_over_limit or km_progress >= 100:
+    status = STATUS_CRITICAL
 elif is_projected_over or km_progress > time_progress + 10:
-    status = "warning"
+    status = STATUS_WARNING
 else:
-    status = "ok"
+    status = STATUS_OK
 ```
 
-### Configuration Flow
+`STATUS_OK`, `STATUS_WARNING` and `STATUS_CRITICAL` are defined in `calculations.py`.
 
-#### Setup Process
-1. User navigates to Integrations → Add Integration
-2. Searches for "Car Rental Tracker"
-3. Fills in configuration form:
-   - Start/End dates (date pickers)
-   - Monthly KM allowance (number input)
-   - Initial odometer (number input)
-   - Overage cost (number input)
-   - Odometer sensor (entity selector)
-4. Validation:
-   - End date must be after start date
-   - Numeric values must be positive
-   - Odometer entity must exist
-5. Integration creates 13 sensor entities
+#### Monthly statistics
 
-#### Options Flow
-- Users can update configuration after setup
-- Same validation as initial setup
-- Triggers reload of integration
+Monthly values are per **calendar month**: from the 1st of the month to today. After the contract has ended, they are calculated for the last month of the contract.
 
-### Data Flow
+The month-start baseline is chosen in this order:
+
+1. The contract started in the current month: the configured initial odometer (`initial_odometer`).
+2. A valid reading near midnight on the 1st (Home Assistant time zone): the last valid reading at or before midnight (`history_before_month_start`), or, if there is none, the first valid reading within 24 hours after midnight (`history_after_month_start`, see `MAX_DELAY_AFTER_BOUNDARY`). The candidates are the coordinator's last two readings plus the recorder's state changes from midnight to 24 hours later, including the state at midnight. The selection logic is in `baseline.py` and works on plain objects with `.state` and `.last_updated`.
+3. No usable reading (recorder disabled, old data purged, or no update during the first 24 hours of the month): an estimate from the contract's daily average times the days elapsed in the month (`estimated_fallback`).
+
+A history baseline is computed once per month and persisted with `homeassistant.helpers.storage.Store` in `.storage/car_rental_tracker.<entry_id>` (entity id, month, value, source). It is restored on startup if it belongs to the same odometer entity, and the file is removed in `async_remove_entry` when the entry is deleted. An estimate is never persisted; it is retried at most once per `BASELINE_RETRY_INTERVAL` (1 hour), and only while a history reading can still turn up.
+
+`monthly_remaining = max(km_allowance_per_month - monthly_driven, 0)`.
+
+### Configuration flow
+
+#### Setup
+1. **Settings** → **Devices & services** → **Add integration** → **Car Rental Tracker**
+2. Form fields:
+   - Start and end date (date pickers)
+   - Monthly KM allowance, initial odometer, overage cost per KM (number inputs)
+   - Odometer entity (entity selector; `sensor` or `input_number` domain)
+3. The flow checks that the end date is after the start date and that the odometer entity exists and has a numeric state (`invalid_odometer` otherwise). The schema requires a monthly allowance of at least 1 and a non-negative initial odometer and overage cost.
+4. The entry creates one device with 15 sensors.
+
+#### Options flow
+- **Configure** on the entry changes the same values, with the same checks. An unchanged odometer entity isn't checked again, so a temporarily unavailable source doesn't block editing the other values.
+- The entry's unique id (`<odometer entity>_<start date>`) and title follow the edited values; a combination that another entry already uses is rejected (`already_configured`).
+- Saving reloads the entry. Existing entity ids are kept.
+
+### Data flow
 
 ```
-Odometer Sensor Update
-         ↓
-    Coordinator
-         ↓
-  Calculate Stats
-         ↓
-   Update Sensors
-         ↓
-    Frontend Card
+Odometer entity state change ─┐
+5-minute timer ───────────────┼─> Coordinator ─> calculate_rental_stats() ─> Sensors ─> Card
+Recorder history (month start)┘
 ```
 
-#### Update Triggers
-1. **Odometer Change**: Immediate update when source sensor changes
-2. **Time-based**: Every 5 minutes to recalculate time-dependent metrics
-3. **On Demand**: When card loads or refreshes
+### Error handling
 
-## Frontend Architecture
+- **Odometer entity missing, unavailable or not numeric**: logged at debug level (once, until a valid reading returns). The coordinator keeps calculating with the last valid reading; if there has never been a valid reading, the sensors are `unavailable`. The config and options flows reject a missing or non-numeric entity (`invalid_odometer`).
+- **Odometer not in km**: a warning is logged once; the values are used unconverted.
+- **Recorder history unavailable**: a warning is logged once, and the monthly baseline falls back to the daily-average estimate (`estimated_fallback`).
+- **Division by zero**: progress and averages return 0 when the denominator is 0.
+- **Odometer below the initial reading**: Total Driven is clamped to 0.
 
-### Custom Card Structure
+## Frontend
 
-```javascript
-class CarRentalCard extends HTMLElement {
-    constructor()      // Initialize card
-    setConfig()        // Set configuration
-    set hass()         // Update with new state
-    render()           // Render card HTML
-}
+### Loading
+
+`__init__.py` serves `www/` at `/hacsfiles/car_rental_tracker/` (and `/local/community/car_rental_tracker/`) and registers `/hacsfiles/car_rental_tracker/car-rental-card.js` with `homeassistant.components.frontend.add_extra_js_url`, so every dashboard loads the card without a Lovelace resource. A manually added resource still works: the card only calls `customElements.define` if `car-rental-card` isn't defined yet.
+
+### Configuration
+
+```yaml
+type: custom:car-rental-card
+entity: sensor.car_rental_tracker_2024_01_01_status   # required: any sensor of the tracker device
+title: My Rental Car                                   # optional
 ```
 
-### Card Features
+The card has no visual editor. It finds the other sensors of the same device through `hass.entities[entity].device_id` and each entity's `translation_key`. If `translation_key` isn't available, it matches the entity id suffix `_<key>` among the entities of the same device.
 
-#### 1. Main Stats Section
-- 4 stat cards in grid layout
-- Shows: Current Odometer, Total Driven, KM Remaining, Days Left
-- Icons and formatted numbers
+### Sections
 
-#### 2. Progress Section
-- Dual progress bars (time and KM)
-- Color-coded based on status
-- Pace indicator with recommendations
+1. **Main stats**: current odometer, total driven, KM remaining, days left
+2. **Progress**: time and KM progress bars with a pace indicator
+3. **This month**: calendar-month driven, remaining and allowance with a progress bar
+4. **Projections**: projected KM, overage and cost
+5. **Alerts**: warning and critical messages
 
-#### 3. Monthly Section
-- Current month's statistics
-- Progress bar
-- Percentage usage
+## Testing
 
-#### 4. Projections Section
-- Projected final KM
-- Overage (if applicable)
-- Cost estimate
+Unit tests cover the Home Assistant-free modules:
 
-#### 5. Alerts Section
-- Dynamic warnings
-- Color-coded (warning/critical)
-- Actionable recommendations
+- `tests/test_calculations.py`: `calculations.py` (months between dates, allowance, day counts, projection and status, monthly statistics), using fixed `today` dates
+- `tests/test_baseline.py`: month-start baseline selection in `baseline.py`
+- `tests/conftest.py`: puts `custom_components/car_rental_tracker` on `sys.path` so these modules import without Home Assistant
 
-### Styling
+Run them locally:
 
-- Uses CSS custom properties for theming
-- Supports Home Assistant themes
-- Dark mode compatible
-- Responsive grid layout
-- Material Design inspired
-
-### State Management
-
-```javascript
-_findRelatedSensors(deviceId) {
-    // Searches for all related sensor entities
-    // Handles different entity ID patterns
-    // Returns map of sensors
-}
+```bash
+pip install -r tests/requirements.txt
+python -m pytest tests -v
 ```
 
-## Performance Considerations
-
-### Backend
+`sensor.py`, `config_flow.py`, `__init__.py` and the card have no automated tests. Check them by hand:
 
-1. **Calculation Efficiency**
-   - All calculations are O(1) complexity
-   - No loops or iterations over large datasets
-   - Immutable data structures (NamedTuple)
+- [ ] Set up the integration through the UI, with a `sensor` and with an `input_number` as the odometer
+- [ ] All 15 sensors are created with the expected entity ids
+- [ ] Options flow changes are applied after the reload
+- [ ] The card loads without a Lovelace resource and shows all sections
+- [ ] Two config entries with separate cards show their own values
+- [ ] Light and dark theme, mobile layout
 
-2. **Update Strategy**
-   - Push-based updates (not polling)
-   - 5-minute interval for time updates only
-   - Minimal computational overhead
-
-3. **Memory Usage**
-   - Single coordinator per integration instance
-   - Lightweight sensor entities
-   - No data buffering or history storage
-
-### Frontend
+## CI
 
-1. **Rendering**
-   - Shadow DOM for encapsulation
-   - Efficient HTML string generation
-   - Minimal DOM manipulation
-
-2. **Updates**
-   - Only re-renders when hass object changes
-   - No polling from frontend
-   - Leverages Home Assistant's state management
+GitHub Actions workflows in `.github/workflows/`:
 
-## Testing Strategy
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `tests.yml` | push to `main`, pull requests | Python 3.13, installs `tests/requirements.txt`, runs `pytest tests -v` |
+| `hacs-validate.yml` | push to `main`, pull requests | HACS validation |
+| `hassfest-validate.yml` | push to `main`, pull requests | Home Assistant hassfest validation |
+| `release.yml` | push to `main` | release-please |
 
-### Unit Tests (24 tests)
+Actions are pinned to commit SHAs. The validation and test workflows only have `contents: read`.
 
-#### Test Categories
+## Releases
 
-1. **Basic Functions** (7 tests)
-   - calculate_months_between
-   - calculate_daily_average
-   - is_on_pace
+Releases are made by [release-please](https://github.com/googleapis/release-please) from [conventional commits](https://www.conventionalcommits.org/):
 
-2. **Main Calculations** (6 tests)
-   - Various contract scenarios
-   - Edge cases and boundary conditions
-   - Status transitions
+1. Merge PRs to `main` with conventional-commit titles: `fix:` for bug fixes (patch), `feat:` for features (minor), `feat!:` or a `BREAKING CHANGE:` footer for breaking changes (major). Use `docs:`, `test:`, `ci:` or `chore:` for changes that don't affect users.
+2. release-please opens or updates a release PR. It bumps `.release-please-manifest.json` and the `version` in `manifest.json`, and adds the new section to `CHANGELOG.md`.
+3. Merging the release PR creates the tag and the GitHub release. HACS offers the new version to users.
 
-3. **Monthly Stats** (3 tests)
-   - First month calculations
-   - Month transitions
-   - Overage scenarios
+Don't edit the version in `manifest.json`, `.release-please-manifest.json` or `CHANGELOG.md` by hand.
 
-4. **Edge Cases** (4 tests)
-   - Negative driven (odometer rollback)
-   - Very short contracts
-   - Zero values
-   - Division by zero prevention
+### Backward compatibility
 
-#### Test Independence
+- Config entry data and entity unique ids are kept stable, so existing installations keep their entities and history.
+- Changes to entity ids, card configuration or the config entry format are breaking changes and need a `feat!:` / `BREAKING CHANGE:` commit.
+- Changes to a sensor's unit, device class or state class change its long-term statistics metadata; Home Assistant then reports issues in **Developer tools** → **Statistics**. Mention them in the release notes, as the [README's upgrade notes for 1.3.x](../README.md#upgrading-from-13x) do.
 
-- Each test is independent
-- No shared state between tests
-- Uses standalone test runner (no HA dependencies)
+## Extending
 
-### Manual Testing Checklist
+### Adding a sensor
 
-- [ ] Integration setup through UI
-- [ ] Sensor creation and updates
-- [ ] Card display with various statuses
-- [ ] Date validation
-- [ ] Odometer entity selection
-- [ ] Options flow updates
-- [ ] Multiple integration instances
-- [ ] Theme compatibility
-- [ ] Mobile responsive layout
+1. Add a `SENSOR_<NAME>` key constant to `const.py`. The key is the unique id suffix and the translation key, so don't change it after a release.
+2. Add a description to `SENSOR_DESCRIPTIONS` in `sensor.py`, usually with the `_distance`, `_percentage` or `_days` helper, and a `value_fn` that reads `CarRentalData`. If the value isn't calculated yet, extend `RentalStats` first (see [Adding a calculation](#adding-a-calculation)).
+3. Add `entity.sensor.<key>.name` to `strings.json` and `translations/en.json`. The English name must slugify to the key (for example `"KM Remaining"` → `km_remaining`): the entity id is built from it, and the card falls back to matching the `_<key>` suffix.
+4. Add the key to `SENSOR_KEYS` in `www/car-rental-card.js` so the card can find the sensor.
+5. Update the sensor count (currently 15) and the sensor lists in this document and the [README](../README.md).
 
-## Error Handling
+### Adding a calculation
 
-### Backend
+1. Add the function to `calculations.py` (no Home Assistant imports)
+2. Extend `RentalStats` if needed and fill it in `calculate_rental_stats`
+3. Add tests to `tests/test_calculations.py`
 
-1. **Invalid Odometer Values**
-   - Logs warning
-   - Skips update
-   - Maintains last valid state
+## Security and privacy
 
-2. **Missing Entity**
-   - Logs error with entity ID
-   - Prevents integration setup if entity not found
-   - Clear error message to user
+- All calculations run locally; the integration makes no external calls.
+- The only database access is reading the odometer entity's history through the Home Assistant recorder API.
+- Dependency: `python-dateutil`. The card uses no third-party JavaScript libraries.
 
-3. **Date Validation**
-   - End date must be after start date
-   - Date format validation
-   - User-friendly error messages
+## Troubleshooting
 
-4. **Division by Zero**
-   - Handled in calculations
-   - Returns 0 instead of crashing
-   - Documented in tests
-
-### Frontend
-
-1. **Entity Not Found**
-   - Displays error message in card
-   - Shows entity ID for debugging
-   - Prevents JavaScript errors
-
-2. **Missing Sensors**
-   - Graceful degradation
-   - Shows available data only
-   - Error message if no sensors found
-
-3. **Invalid Values**
-   - Null/undefined checks
-   - Default to 0 for display
-   - Prevents NaN in calculations
-
-## Extensibility
-
-### Adding New Sensors
-
-1. Create sensor class in sensor.py
-2. Extend CarRentalSensorBase
-3. Implement native_value property
-4. Add to entities list in async_setup_entry
-
-### Adding New Calculations
-
-1. Add function to calculations.py
-2. Update RentalStats tuple if needed
-3. Call from calculate_rental_stats
-4. Add tests for new function
-
-### Customizing Card
-
-1. Override styles in card config
-2. Add new sections to render methods
-3. Use CSS custom properties for theming
-
-## Deployment
-
-### HACS Installation
-
-1. Repository added to HACS
-2. User installs via HACS UI
-3. Home Assistant downloads integration
-4. Restart required
-5. Integration available in Integrations menu
-
-### Manual Installation
-
-1. Copy car_rental_tracker folder to custom_components/
-2. Restart Home Assistant
-3. Integration appears in Integrations menu
-
-### Card Installation
-
-1. Card JS file automatically available at:
-   `/hacsfiles/car_rental_tracker/car-rental-card.js`
-2. Add resource in Lovelace resources
-3. Card type: `custom:car-rental-card`
-
-## Maintenance
-
-### Updating Integration
-
-1. Bump version in manifest.json
-2. Update CHANGELOG
-3. Tag release in Git
-4. HACS detects new version
-5. Users update via HACS
-
-### Backward Compatibility
-
-- Configuration format is stable
-- Sensor entity IDs are consistent
-- Card configuration is stable
-- Breaking changes require major version bump
-
-## Security Considerations
-
-### Data Privacy
-
-- All calculations performed locally
-- No external API calls
-- No data transmission outside Home Assistant
-- User data stays on user's instance
-
-### Input Validation
-
-- All user inputs validated
-- Type checking with type hints
-- Range validation for numeric inputs
-- SQL injection not applicable (no database queries)
-
-### Dependencies
-
-- python-dateutil (well-established, secure)
-- No third-party JavaScript libraries
-- Minimal attack surface
-
-## Performance Metrics
-
-### Calculation Time
-- Average: < 1ms per calculation
-- Worst case: < 5ms (first calculation of day)
-
-### Memory Usage
-- Per integration: ~50KB
-- Per sensor: ~5KB
-- Card: ~100KB (including HTML)
-
-### Network Usage
-- No network calls from integration
-- Card loads once from local filesystem
-
-## Future Enhancements
-
-### Potential Features
-
-1. **Historical Data**
-   - Store daily snapshots
-   - Trend analysis
-   - Monthly reports
-
-2. **Multiple Vehicles**
-   - Compare usage across vehicles
-   - Combined statistics
-   - Fleet management
-
-3. **Notifications**
-   - Built-in notification service
-   - Configurable alerts
-   - Email/push notifications
-
-4. **Advanced Visualizations**
-   - Charts using Chart.js
-   - Historical graphs
-   - Usage heatmaps
-
-5. **Integration with Calendar**
-   - Add contract end date to calendar
-   - Maintenance reminders
-   - Return date countdown
-
-6. **Export Data**
-   - CSV export
-   - PDF reports
-   - API for external tools
-
-## Troubleshooting Guide
-
-### Common Issues
-
-#### Issue: Sensors not updating
-**Cause**: Odometer entity not reporting
-**Solution**: Check sensor state in Developer Tools
-
-#### Issue: Wrong calculations
-**Cause**: Incorrect initial values
-**Solution**: Update configuration via Options
-
-#### Issue: Card not displaying
-**Cause**: Resource not loaded
-**Solution**: Check Resources, clear cache
-
-#### Issue: Entity not found
-**Cause**: Entity ID changed
-**Solution**: Reconfigure integration
+| Problem | Likely cause | What to do |
+|---------|--------------|------------|
+| Sensors unavailable | Odometer entity hasn't reported a numeric state since Home Assistant started | Check the entity in **Developer tools** → **States**; enable debug logging for `custom_components.car_rental_tracker` |
+| Wrong values | Wrong dates or initial odometer | Fix them with **Configure** on the entry |
+| Monthly Driven is an estimate | No recorder history for the 1st of the month | Check `monthly_baseline_source`; make sure the recorder keeps the odometer entity |
+| Card not displayed | Old frontend cache | Restart Home Assistant and reload the browser (Ctrl+F5) |
+| Card says entity not found | Entity was renamed | Update `entity` in the card configuration |
 
 ## References
 
-### Home Assistant Documentation
-- [Integration Development](https://developers.home-assistant.io/docs/creating_component_index)
-- [Sensor Platform](https://developers.home-assistant.io/docs/core/entity/sensor)
-- [Config Flow](https://developers.home-assistant.io/docs/config_entries_config_flow_handler)
-
-### Technologies Used
-- Python 3.11+
-- Home Assistant Core
-- JavaScript ES6+
-- Web Components (Custom Elements)
-
-### Related Concepts
-- Observer Pattern (coordinator)
-- Push-based Updates
-- Immutable Data (NamedTuple)
-- Reactive UI (Web Components)
+- [Integration development](https://developers.home-assistant.io/docs/creating_component_index)
+- [Sensor entity](https://developers.home-assistant.io/docs/core/entity/sensor)
+- [Config flow](https://developers.home-assistant.io/docs/config_entries_config_flow_handler)
+- [Entity naming and translations](https://developers.home-assistant.io/docs/core/entity#entity-naming)
