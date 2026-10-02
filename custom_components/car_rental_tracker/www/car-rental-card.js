@@ -41,17 +41,142 @@ const PACE_WARNING_PCT = 10;
 const CARD_SIZE = 12;
 const CARD_SIZE_ERROR = 2;
 
+// ---------------------------------------------------------------------------
+// Localisation
+// ---------------------------------------------------------------------------
+
+const DEFAULT_LANGUAGE = 'en';
+
+// Placeholders use {name}; values are filled in by translate().
+const TRANSLATIONS = {
+  en: {
+    card_name: 'Car Rental Tracker Card',
+    card_description: 'A card to display car rental contract tracking and KM management',
+    default_title: 'Car Rental Tracker',
+    stat_odometer: 'Current Odometer',
+    stat_total_driven: 'Total Driven',
+    stat_km_remaining: 'KM Remaining',
+    stat_days_remaining: 'Days Left',
+    section_progress: 'Progress Overview',
+    progress_time: 'Time Elapsed',
+    progress_km: 'KM Usage',
+    pace_on_track: 'On Pace',
+    pace_ahead: '{percent} Ahead - Slow Down!',
+    pace_behind: '{percent} Behind - You Can Drive More',
+    section_month: 'This Month',
+    monthly_driven: 'Driven',
+    monthly_remaining: 'Remaining',
+    monthly_allowance: 'Allowance',
+    monthly_bar_label: 'Monthly allowance used',
+    monthly_used: '{percent} of monthly allowance used',
+    section_projections: 'Projections',
+    projection_km: 'Projected KM at End',
+    projection_overage: 'Projected Overage',
+    projection_cost: 'Estimated Cost',
+    alert_critical: 'CRITICAL: You have exceeded your KM allowance!',
+    alert_overage: 'WARNING: You are projected to exceed your allowance by {distance}',
+    alert_pace: 'You are driving faster than your contract pace. Consider slowing down.',
+    status_ok: 'OK',
+    status_warning: 'Warning',
+    status_critical: 'Critical',
+    unavailable: 'Unavailable',
+    percent: '{value}%',
+    error_entity_not_found: 'Entity not found: {entity}',
+    error_sensors_missing:
+      'Related Car Rental Tracker sensors not found. Please check the configured entity.',
+    error_entity_required:
+      "Please set 'entity' to a sensor of your Car Rental Tracker device " +
+      '(for example its Status sensor, sensor.car_rental_tracker_<start_date>_status)',
+    error_title_type: "'title' must be a string",
+  },
+  de: {
+    card_name: 'Car-Rental-Tracker-Karte',
+    card_description: 'Eine Karte zur Anzeige deines Mietwagenvertrags und zur Verwaltung der Kilometer',
+    default_title: 'Car Rental Tracker',
+    stat_odometer: 'Kilometer­stand',
+    stat_total_driven: 'Insgesamt gefahren',
+    stat_km_remaining: 'Verbleibende km',
+    stat_days_remaining: 'Verbleibende Tage',
+    section_progress: 'Fortschrittsübersicht',
+    progress_time: 'Vergangene Zeit',
+    progress_km: 'Genutzte Kilometer',
+    pace_on_track: 'Im Plan',
+    pace_ahead: '{percent} über dem Plan – fahr langsamer!',
+    pace_behind: '{percent} unter dem Plan – du kannst mehr fahren',
+    section_month: 'Dieser Monat',
+    monthly_driven: 'Gefahren',
+    monthly_remaining: 'Verbleibend',
+    monthly_allowance: 'Kontingent',
+    monthly_bar_label: 'Genutztes Monatskontingent',
+    monthly_used: '{percent} des Monatskontingents genutzt',
+    section_projections: 'Prognosen',
+    projection_km: 'Prognostizierte km bei Vertragsende',
+    projection_overage: 'Prognostizierte Mehrkilometer',
+    projection_cost: 'Geschätzte Kosten',
+    alert_critical: 'KRITISCH: Du hast dein Kilometerkontingent überschritten!',
+    alert_overage: 'WARNUNG: Laut Prognose überschreitest du dein Kontingent um {distance}',
+    alert_pace: 'Du fährst mehr, als dein Vertrag vorsieht. Fahr am besten etwas weniger.',
+    status_ok: 'OK',
+    status_warning: 'Warnung',
+    status_critical: 'Kritisch',
+    unavailable: 'Nicht verfügbar',
+    percent: '{value} %',
+    error_entity_not_found: 'Entität nicht gefunden: {entity}',
+    error_sensors_missing:
+      'Zugehörige Car-Rental-Tracker-Sensoren nicht gefunden. Bitte überprüfe die konfigurierte Entität.',
+    error_entity_required:
+      "Bitte setze 'entity' auf einen Sensor deines Car-Rental-Tracker-Geräts " +
+      '(zum Beispiel dessen Status-Sensor, sensor.car_rental_tracker_<start_date>_status)',
+    error_title_type: "'title' muss eine Zeichenkette sein",
+  },
+};
+
+// 'de-AT' / 'de_AT' -> 'de'; anything without a dictionary -> DEFAULT_LANGUAGE.
+const toSupportedLanguage = (tag) => {
+  const base = typeof tag === 'string' ? tag.split(/[-_]/)[0].toLowerCase() : '';
+  return Object.prototype.hasOwnProperty.call(TRANSLATIONS, base) ? base : DEFAULT_LANGUAGE;
+};
+
+// Language of the HA frontend; before hass exists, fall back to the page/browser.
+const resolveLanguage = (hass) => {
+  const fromHass = hass && ((hass.locale && hass.locale.language) || hass.language);
+  if (fromHass) {
+    return toSupportedLanguage(fromHass);
+  }
+  const doc = typeof document !== 'undefined' && document.documentElement;
+  const nav = typeof navigator !== 'undefined' && navigator.language;
+  return toSupportedLanguage((doc && doc.lang) || nav || DEFAULT_LANGUAGE);
+};
+
+const translate = (language, key, params = {}) => {
+  const dict = TRANSLATIONS[language] || TRANSLATIONS[DEFAULT_LANGUAGE];
+  const template = dict[key] !== undefined ? dict[key] : TRANSLATIONS[DEFAULT_LANGUAGE][key];
+  if (template === undefined) {
+    return key;
+  }
+  return template.replace(/\{(\w+)\}/g, (match, name) =>
+    Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match
+  );
+};
+
+const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+
+// ---------------------------------------------------------------------------
+// Markup
+// ---------------------------------------------------------------------------
+
 const progressItem = (ref, icon, label) => `
   <div class="progress-item">
     <div class="progress-header">
       <span class="progress-label">
         <ha-icon icon="${icon}"></ha-icon>
-        ${label}
+        ${escapeHtml(label)}
       </span>
       <span class="progress-value" data-ref="${ref}Value"></span>
     </div>
     <div class="progress-bar" data-ref="${ref}Bar" role="progressbar"
-         aria-label="${label}" aria-valuemin="0" aria-valuemax="100">
+         aria-label="${escapeHtml(label)}" aria-valuemin="0" aria-valuemax="100">
       <div class="progress-fill" data-ref="${ref}Fill"></div>
     </div>
   </div>
@@ -61,13 +186,13 @@ const statItem = (ref, icon, label) => `
   <div class="stat-item">
     <div class="stat-icon"><ha-icon icon="${icon}"></ha-icon></div>
     <div class="stat-value" data-ref="${ref}"></div>
-    <div class="stat-label">${label}</div>
+    <div class="stat-label">${escapeHtml(label)}</div>
   </div>
 `;
 
 const monthlyItem = (ref, label) => `
   <div class="monthly-item">
-    <span class="monthly-label">${label}</span>
+    <span class="monthly-label">${escapeHtml(label)}</span>
     <span class="monthly-value" data-ref="${ref}"></span>
   </div>
 `;
@@ -76,14 +201,15 @@ const projectionItem = (ref, icon, label) => `
   <div class="projection-item" data-ref="${ref}Row">
     <div class="projection-label">
       <ha-icon icon="${icon}"></ha-icon>
-      ${label}
+      ${escapeHtml(label)}
     </div>
     <div class="projection-value" data-ref="${ref}"></div>
   </div>
 `;
 
-// Static markup only: every dynamic value is set later via textContent/attributes.
-const CARD_TEMPLATE = `
+// Static, translated markup only: every dynamic value is set later via
+// textContent/attributes. Rebuilt whenever the UI language changes.
+const cardTemplate = (t) => `
   <ha-card>
     <div class="message" data-ref="message" hidden></div>
     <div class="content" data-ref="content">
@@ -96,16 +222,16 @@ const CARD_TEMPLATE = `
       </div>
 
       <div class="main-stats">
-        ${statItem('odometer', 'mdi:counter', 'Current Odometer')}
-        ${statItem('totalDriven', 'mdi:map-marker-distance', 'Total Driven')}
-        ${statItem('kmRemaining', 'mdi:gauge', 'KM Remaining')}
-        ${statItem('daysRemaining', 'mdi:calendar-clock', 'Days Left')}
+        ${statItem('odometer', 'mdi:counter', t('stat_odometer'))}
+        ${statItem('totalDriven', 'mdi:map-marker-distance', t('stat_total_driven'))}
+        ${statItem('kmRemaining', 'mdi:gauge', t('stat_km_remaining'))}
+        ${statItem('daysRemaining', 'mdi:calendar-clock', t('stat_days_remaining'))}
       </div>
 
       <section class="section">
-        <h3>Progress Overview</h3>
-        ${progressItem('time', 'mdi:clock-outline', 'Time Elapsed')}
-        ${progressItem('km', 'mdi:speedometer', 'KM Usage')}
+        <h3>${escapeHtml(t('section_progress'))}</h3>
+        ${progressItem('time', 'mdi:clock-outline', t('progress_time'))}
+        ${progressItem('km', 'mdi:speedometer', t('progress_km'))}
         <div class="pace-indicator" data-ref="pace">
           <ha-icon data-ref="paceIcon"></ha-icon>
           <span data-ref="paceText"></span>
@@ -113,25 +239,25 @@ const CARD_TEMPLATE = `
       </section>
 
       <section class="section">
-        <h3>This Month</h3>
+        <h3>${escapeHtml(t('section_month'))}</h3>
         <div class="monthly-stats">
-          ${monthlyItem('monthlyDriven', 'Driven')}
-          ${monthlyItem('monthlyRemaining', 'Remaining')}
-          ${monthlyItem('monthlyAllowance', 'Allowance')}
+          ${monthlyItem('monthlyDriven', t('monthly_driven'))}
+          ${monthlyItem('monthlyRemaining', t('monthly_remaining'))}
+          ${monthlyItem('monthlyAllowance', t('monthly_allowance'))}
         </div>
         <div class="progress-bar monthly-progress" data-ref="monthlyBar" role="progressbar"
-             aria-label="Monthly allowance used" aria-valuemin="0" aria-valuemax="100">
+             aria-label="${escapeHtml(t('monthly_bar_label'))}" aria-valuemin="0" aria-valuemax="100">
           <div class="progress-fill" data-ref="monthlyFill"></div>
         </div>
         <div class="monthly-percentage" data-ref="monthlyValue"></div>
       </section>
 
       <section class="section">
-        <h3>Projections</h3>
+        <h3>${escapeHtml(t('section_projections'))}</h3>
         <div class="projection-stats">
-          ${projectionItem('projected', 'mdi:chart-line', 'Projected KM at End')}
-          ${projectionItem('overage', 'mdi:alert-circle', 'Projected Overage')}
-          ${projectionItem('cost', 'mdi:cash', 'Estimated Cost')}
+          ${projectionItem('projected', 'mdi:chart-line', t('projection_km'))}
+          ${projectionItem('overage', 'mdi:alert-circle', t('projection_overage'))}
+          ${projectionItem('cost', 'mdi:cash', t('projection_cost'))}
         </div>
       </section>
 
@@ -151,6 +277,7 @@ class CarRentalCard extends HTMLElement {
     this._refs = null;
     this._alertsSignature = null;
     this._isError = false;
+    this._lang = null;
   }
 
   static getStubConfig(hass) {
@@ -169,13 +296,10 @@ class CarRentalCard extends HTMLElement {
 
   setConfig(config) {
     if (!config || typeof config.entity !== 'string' || !config.entity.includes('.')) {
-      throw new Error(
-        "Please set 'entity' to a sensor of your Car Rental Tracker device " +
-        '(for example its Status sensor, sensor.car_rental_tracker_<start_date>_status)'
-      );
+      throw new Error(this._t('error_entity_required'));
     }
     if (config.title !== undefined && typeof config.title !== 'string') {
-      throw new Error("'title' must be a string");
+      throw new Error(this._t('error_title_type'));
     }
     this._config = { ...config };
     this._ids = null;
@@ -262,7 +386,11 @@ class CarRentalCard extends HTMLElement {
   }
 
   _hasRelevantChange(previous, hass) {
-    if (previous.locale !== hass.locale || previous.config !== hass.config) {
+    if (
+      previous.locale !== hass.locale ||
+      previous.language !== hass.language ||
+      previous.config !== hass.config
+    ) {
       return true;
     }
     const ids = [this._config.entity, ...Object.values(this._ids || {})];
@@ -281,11 +409,32 @@ class CarRentalCard extends HTMLElement {
   // Rendering
   // ---------------------------------------------------------------------------
 
+  // Translate with the current HA language (browser language before hass is set).
+  _t(key, params) {
+    return translate(resolveLanguage(this._hass), key, params);
+  }
+
+  _formatPercent(value) {
+    return this._t('percent', { value: this._formatNumber(value, 1) });
+  }
+
+  _syncLanguage() {
+    const lang = resolveLanguage(this._hass);
+    if (lang === this._lang) {
+      return;
+    }
+    // Labels live in the static markup, so a language change rebuilds it.
+    this._lang = lang;
+    this._refs = null;
+    this._alertsSignature = null;
+  }
+
   _ensureDom() {
     if (this._refs) {
       return;
     }
-    this.shadowRoot.innerHTML = `<style>${CarRentalCard._styles()}</style>${CARD_TEMPLATE}`;
+    const template = cardTemplate((key, params) => this._t(key, params));
+    this.shadowRoot.innerHTML = `<style>${CarRentalCard._styles()}</style>${template}`;
     this._refs = {};
     this.shadowRoot.querySelectorAll('[data-ref]').forEach((el) => {
       this._refs[el.dataset.ref] = el;
@@ -298,15 +447,16 @@ class CarRentalCard extends HTMLElement {
     const entityId = this._config.entity;
     const hass = this._hass;
     if (!hass.states[entityId] && !(hass.entities && hass.entities[entityId])) {
-      return `Entity not found: ${entityId}`;
+      return this._t('error_entity_not_found', { entity: entityId });
     }
     if (!sensors.total_driven) {
-      return 'Related Car Rental Tracker sensors not found. Please check the configured entity.';
+      return this._t('error_sensors_missing');
     }
     return null;
   }
 
   _render() {
+    this._syncLanguage();
     this._ensureDom();
     const sensors = this._sensors();
     const error = this._findError(sensors);
@@ -318,7 +468,7 @@ class CarRentalCard extends HTMLElement {
       return;
     }
 
-    this._refs.title.textContent = this._config.title || 'Car Rental Tracker';
+    this._refs.title.textContent = this._config.title || this._t('default_title');
     this._renderStatus(sensors.status);
     this._renderMainStats(sensors);
     this._renderProgress(sensors);
@@ -335,8 +485,12 @@ class CarRentalCard extends HTMLElement {
       badge.textContent = DASH;
     } else if (typeof this._hass.formatEntityState === 'function') {
       badge.textContent = this._hass.formatEntityState(stateObj);
+    } else if (STATUS_CLASSES.includes(stateObj.state)) {
+      badge.textContent = this._t(`status_${stateObj.state}`);
     } else {
-      badge.textContent = stateObj.state;
+      badge.textContent = UNAVAILABLE_STATES.includes(stateObj.state)
+        ? this._t('unavailable')
+        : stateObj.state;
     }
   }
 
@@ -368,12 +522,12 @@ class CarRentalCard extends HTMLElement {
     let cls;
     let icon;
     if (Math.abs(difference) < PACE_TOLERANCE_PCT) {
-      [text, cls, icon] = ['On Pace', 'ok', 'mdi:check-circle'];
+      [text, cls, icon] = [this._t('pace_on_track'), 'ok', 'mdi:check-circle'];
     } else if (difference > 0) {
-      text = `${this._formatNumber(difference, 1)}% Ahead - Slow Down!`;
+      text = this._t('pace_ahead', { percent: this._formatPercent(difference) });
       [cls, icon] = ['warning', 'mdi:alert-circle'];
     } else {
-      text = `${this._formatNumber(-difference, 1)}% Behind - You Can Drive More`;
+      text = this._t('pace_behind', { percent: this._formatPercent(-difference) });
       [cls, icon] = ['ok', 'mdi:information'];
     }
     pace.className = `pace-indicator ${cls}`;
@@ -406,7 +560,7 @@ class CarRentalCard extends HTMLElement {
     this._setBar('monthly', progress, this._progressClass(progress, elapsedPct));
     this._refs.monthlyValue.textContent = progress === null
       ? DASH
-      : `${this._formatNumber(progress, 1)}% of monthly allowance used`;
+      : this._t('monthly_used', { percent: this._formatPercent(progress) });
   }
 
   _renderProjections(s) {
@@ -452,7 +606,7 @@ class CarRentalCard extends HTMLElement {
       return [{
         cls: 'critical',
         icon: 'mdi:alert-circle',
-        message: 'CRITICAL: You have exceeded your KM allowance!',
+        message: this._t('alert_critical'),
       }];
     }
     if (status !== 'warning') {
@@ -466,14 +620,16 @@ class CarRentalCard extends HTMLElement {
       alerts.push({
         cls: 'warning',
         icon: 'mdi:alert',
-        message: `WARNING: You are projected to exceed your allowance by ${this._formatDistance(s.projected_overage)}`,
+        message: this._t('alert_overage', {
+          distance: this._formatDistance(s.projected_overage),
+        }),
       });
     }
     if (kmProgress !== null && timeProgress !== null && kmProgress > timeProgress + PACE_WARNING_PCT) {
       alerts.push({
         cls: 'warning',
         icon: 'mdi:speedometer-slow',
-        message: 'You are driving faster than your contract pace. Consider slowing down.',
+        message: this._t('alert_pace'),
       });
     }
     return alerts;
@@ -487,14 +643,14 @@ class CarRentalCard extends HTMLElement {
     fill.style.width = `${clamped}%`;
     if (value === null) {
       bar.removeAttribute('aria-valuenow');
-      bar.setAttribute('aria-valuetext', 'Unavailable');
+      bar.setAttribute('aria-valuetext', this._t('unavailable'));
     } else {
       bar.setAttribute('aria-valuenow', String(Math.round(clamped)));
-      bar.setAttribute('aria-valuetext', `${this._formatNumber(value, 1)}%`);
+      bar.setAttribute('aria-valuetext', this._formatPercent(value));
     }
     const label = this._refs[`${ref}Value`];
     if (label && ref !== 'monthly') {
-      label.textContent = value === null ? DASH : `${this._formatNumber(value, 1)}%`;
+      label.textContent = value === null ? DASH : this._formatPercent(value);
     }
   }
 
@@ -717,8 +873,10 @@ if (!customElements.get(CARD_TYPE)) {
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: CARD_TYPE,
-    name: 'Car Rental Tracker Card',
-    description: 'A card to display car rental contract tracking and KM management',
+    // Registered before any hass object exists, so the HA page language
+    // (<html lang>, set by the frontend) or the browser language is used.
+    name: translate(resolveLanguage(null), 'card_name'),
+    description: translate(resolveLanguage(null), 'card_description'),
     preview: true,
     documentationURL: 'https://github.com/b0t-at/ha-car-rental-tracker#readme',
   });

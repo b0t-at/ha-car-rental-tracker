@@ -1,6 +1,6 @@
 # Car Rental Tracker - Examples
 
-All examples use a contract that starts on 2024-01-01, so the entity ids start with `sensor.car_rental_tracker_2024_01_01_`. Replace that part with the ids of your own contract; you can look them up on the device page under **Settings** → **Devices & services** → **Car Rental Tracker**. `notify.mobile_app_your_phone` is a placeholder for your own notify action.
+All examples use a contract that starts on 2024-01-01, so the entity ids start with `sensor.car_rental_tracker_2024_01_01_`. Replace that part with the ids of your own contract; you can look them up on the device page under **Settings** → **Devices & services** → **Car Rental Tracker**. The suffixes shown here are the English ones; if Home Assistant's system language was German when you added the contract, your ids end in the German sensor names instead (see [Entity ids and the system language](../README.md#entity-ids-and-the-system-language)). `notify.mobile_app_your_phone` is a placeholder for your own notify action.
 
 The automation examples use the `triggers:` / `actions:` syntax, which the minimum supported Home Assistant version (2024.12) understands.
 
