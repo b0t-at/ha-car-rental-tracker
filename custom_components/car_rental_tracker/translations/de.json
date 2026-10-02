@@ -1,0 +1,130 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Car Rental Tracker einrichten",
+        "description": "Konfiguriere die Überwachung deines Mietwagenvertrags. Die Kilometerstand-Entität, der Anfangskilometerstand und das Kilometerkontingent werden als Kilometer interpretiert.",
+        "data": {
+          "start_date": "Startdatum",
+          "end_date": "Enddatum (einschließlich)",
+          "km_allowance_per_month": "Kilometerkontingent pro Monat",
+          "initial_odometer": "Anfangskilometerstand (km)",
+          "overage_cost_per_km": "Kosten pro Mehrkilometer",
+          "odometer_entity": "Sensor-Entität für den Kilometerstand"
+        }
+      }
+    },
+    "error": {
+      "invalid_date_range": "Das Enddatum muss nach dem Startdatum liegen",
+      "invalid_date_format": "Ungültiges Datumsformat",
+      "invalid_odometer": "Die Kilometerstand-Entität wurde nicht gefunden oder liefert keinen numerischen Wert"
+    },
+    "abort": {
+      "already_configured": "Dieser Mietvertrag ist bereits konfiguriert"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Car Rental Tracker aktualisieren",
+        "description": "Aktualisiere die Konfiguration deines Mietwagenvertrags. Die Kilometerstand-Entität, der Anfangskilometerstand und das Kilometerkontingent werden als Kilometer interpretiert.",
+        "data": {
+          "start_date": "Startdatum",
+          "end_date": "Enddatum (einschließlich)",
+          "km_allowance_per_month": "Kilometerkontingent pro Monat",
+          "initial_odometer": "Anfangskilometerstand (km)",
+          "overage_cost_per_km": "Kosten pro Mehrkilometer",
+          "odometer_entity": "Sensor-Entität für den Kilometerstand"
+        }
+      }
+    },
+    "error": {
+      "invalid_date_range": "Das Enddatum muss nach dem Startdatum liegen",
+      "invalid_date_format": "Ungültiges Datumsformat",
+      "invalid_odometer": "Die Kilometerstand-Entität wurde nicht gefunden oder liefert keinen numerischen Wert",
+      "already_configured": "Ein anderer Mietvertrag mit dieser Kilometerstand-Entität und diesem Startdatum ist bereits konfiguriert"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_odometer": {
+        "name": "Aktueller Kilometerstand"
+      },
+      "total_driven": {
+        "name": "Insgesamt gefahren"
+      },
+      "km_allowed": {
+        "name": "Erlaubte km"
+      },
+      "km_remaining": {
+        "name": "Verbleibende km"
+      },
+      "km_projected": {
+        "name": "Prognostizierte km"
+      },
+      "time_progress": {
+        "name": "Zeitfortschritt"
+      },
+      "km_progress": {
+        "name": "Kilometerfortschritt"
+      },
+      "monthly_driven": {
+        "name": "Im Monat gefahren",
+        "state_attributes": {
+          "monthly_baseline_source": {
+            "name": "Quelle des monatlichen Ausgangswerts",
+            "state": {
+              "initial_odometer": "Anfangskilometerstand",
+              "history_before_month_start": "Verlauf vor Monatsbeginn",
+              "history_after_month_start": "Verlauf nach Monatsbeginn",
+              "estimated_fallback": "Geschätzt aus dem Tagesdurchschnitt"
+            }
+          },
+          "monthly_baseline": {
+            "name": "Monatlicher Ausgangswert"
+          }
+        }
+      },
+      "monthly_remaining": {
+        "name": "Im Monat verbleibend"
+      },
+      "monthly_allowance": {
+        "name": "Monatliches Kontingent"
+      },
+      "days_remaining": {
+        "name": "Verbleibende Tage"
+      },
+      "days_elapsed": {
+        "name": "Vergangene Tage"
+      },
+      "projected_overage": {
+        "name": "Prognostizierte Mehrkilometer"
+      },
+      "projected_cost": {
+        "name": "Prognostizierte Kosten"
+      },
+      "status": {
+        "name": "Status",
+        "state": {
+          "ok": "OK",
+          "warning": "Warnung",
+          "critical": "Kritisch"
+        },
+        "state_attributes": {
+          "is_over_limit": {
+            "name": "Über dem Limit"
+          },
+          "is_projected_over": {
+            "name": "Voraussichtlich über dem Limit"
+          },
+          "days_elapsed": {
+            "name": "Vergangene Tage"
+          },
+          "days_total": {
+            "name": "Tage insgesamt"
+          }
+        }
+      }
+    }
+  }
+}
