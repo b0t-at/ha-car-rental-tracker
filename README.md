@@ -15,6 +15,7 @@ Track a car rental or lease contract that has a KM allowance. Car Rental Tracker
 - **Monthly statistics**: KM driven and remaining in the current calendar month, plus the configured monthly allowance
 - **Status**: `ok`, `warning` or `critical`, usable in automations
 - **Dashboard card**: progress bars and key figures; loaded automatically, no manual resource needed
+- **English and German**: the configuration dialogs, sensor names, status values and the card are available in English and German (see [Languages](#languages))
 
 ## Installation
 
@@ -69,6 +70,8 @@ sensor.car_rental_tracker_<YYYY_MM_DD>_<sensor>
 ```
 
 For a contract that starts on 2024-01-01, the KM Remaining sensor is `sensor.car_rental_tracker_2024_01_01_km_remaining`. If two contracts share a start date, Home Assistant adds a suffix such as `_2` to the second one. The ids are fixed when the contract is added (see [Configuration](#configuration)), and you can rename them yourself, so the device page (**Settings** → **Devices & services** → **Car Rental Tracker** → device) is the reliable place to look them up.
+
+The ids and suffixes in this README are the ones Home Assistant creates when its system language is English. If the system language is German when you add the contract, the sensor part of the ids is built from the German sensor names instead (see [Entity ids and the system language](#entity-ids-and-the-system-language)).
 
 | Sensor | Entity id suffix | Description | Unit |
 |--------|------------------|-------------|------|
@@ -233,6 +236,24 @@ Once a real reading has been found for the month, it is saved in `.storage/car_r
 
 The `monthly_baseline_source` and `monthly_baseline` attributes of the Monthly Driven sensor show which one was used.
 
+## Languages
+
+The integration and the card are available in **English** and **German**. There is nothing to configure; Home Assistant picks the language:
+
+- **Configuration dialogs** (adding a contract, **Configure**) and the **card** use the language of your user profile (click your name in the sidebar → **Language**).
+- **Sensor names** and the translated **status** values (`ok`, `warning`, `critical`) use the system language (**Settings** → **System** → **General**).
+- For any other language, English is used.
+
+The device name ("Car Rental Tracker (&lt;start date&gt;)") is not translated. Status values in automations and templates are always `ok`, `warning` and `critical`, whatever the language.
+
+### Entity ids and the system language
+
+Home Assistant builds an entity id once, when the entity is created, from the device name and the sensor name. For languages that use the Latin alphabet, including German, it uses the sensor name in the **system language** at that moment; for other languages it uses English ([`entity_platform.py`](https://github.com/home-assistant/core/blob/dev/homeassistant/helpers/entity_platform.py), `async_load_translations`, and the `NATIVE_ENTITY_IDS` list in [`generated/languages.py`](https://github.com/home-assistant/core/blob/dev/homeassistant/generated/languages.py)).
+
+So if your system language is German when you add a contract, the ids end in the German sensor name, converted to lower case with umlauts written as plain letters (ä → a, ö → o, ü → u) and spaces replaced by `_`, instead of the English suffixes listed under [Sensors](#sensors). The start date part (`sensor.car_rental_tracker_2024_01_01_`) is the same. Ids that already exist are never changed when you switch the language later.
+
+The card doesn't depend on the ids: it finds the sensors of a contract through the device and each sensor's translation key, so it works with English, German or renamed ids. In your own cards, automations and the examples below, use the ids shown on the device page.
+
 ## Troubleshooting
 
 ### Sensors show "Unavailable"
@@ -270,6 +291,16 @@ Pull requests are welcome. Use [conventional commit](https://www.conventionalcom
 pip install -r tests/requirements.txt
 python -m pytest tests -v
 ```
+
+### Adding a language
+
+Translations for another language are welcome:
+
+1. Copy `custom_components/car_rental_tracker/translations/en.json` to `translations/<language>.json` (for example `fr.json`, using the [language code Home Assistant uses](https://github.com/home-assistant/core/blob/dev/homeassistant/generated/languages.py)) and translate the values. Keep the keys and the structure exactly as in `en.json`.
+2. Add the card texts for the language to the translation dictionary in `custom_components/car_rental_tracker/www/car-rental-card.js`, with the same keys as the English entry.
+3. Mention the language in the [Languages](#languages) section of this README.
+
+See [docs/TECHNICAL.md](docs/TECHNICAL.md#adding-a-language) for details.
 
 ## License
 

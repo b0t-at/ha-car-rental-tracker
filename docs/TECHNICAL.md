@@ -24,7 +24,8 @@ custom_components/car_rental_tracker/
 ├── sensor.py            # Sensor descriptions (SENSOR_DESCRIPTIONS) and the sensor entity
 ├── strings.json         # UI and entity translation strings
 ├── translations/
-│   └── en.json          # English translations
+│   ├── en.json          # English translations
+│   └── de.json          # German translations
 └── www/
     └── car-rental-card.js   # Lovelace card
 ```
@@ -48,6 +49,7 @@ custom_components/car_rental_tracker/
 - 15 sensors per config entry, all on one device named `Car Rental Tracker (<start date>)`. The unique id is `<entry_id>_<key>`.
 - Push-based: they update when the coordinator notifies them; they don't poll. They are unavailable while the coordinator data is `None`.
 - `has_entity_name` is set and each sensor has a `translation_key` equal to its key (`current_odometer`, `total_driven`, `km_allowed`, `km_remaining`, `km_projected`, `time_progress`, `km_progress`, `monthly_driven`, `monthly_remaining`, `monthly_allowance`, `days_remaining`, `days_elapsed`, `projected_overage`, `projected_cost`, `status`). Entity ids therefore look like `sensor.car_rental_tracker_2024_01_01_km_remaining`. Home Assistant creates the entity ids once; changing the start date later renames the device but keeps the existing ids.
+- The device name is not translated. The entity names come from `translations/<language>.json`. Home Assistant builds the object id from the entity name in `hass.config.language` if that language is in `homeassistant.generated.languages.NATIVE_ENTITY_IDS` (which includes `de`), otherwise from the English name (`EntityPlatform.async_load_translations` and `Entity.suggested_object_id` in Home Assistant core). With German as the system language, the id suffix is therefore the slugified German name, not the key. Code must never derive a sensor from its entity id; use the unique id or the `translation_key`.
 - Status is an `enum` sensor with the options `ok`, `warning` and `critical` (translated). Its attributes are `is_over_limit`, `is_projected_over`, `days_elapsed` and `days_total`.
 - Distance sensors use the `distance` device class and km. Current Odometer is `total_increasing`, Total Driven is `total`, and the other distance sensors (including KM Allowed) are `measurement`.
 - Days Remaining and Days Elapsed use the `duration` device class with the unit `d`.
@@ -152,7 +154,11 @@ entity: sensor.car_rental_tracker_2024_01_01_status   # required: any sensor of 
 title: My Rental Car                                   # optional
 ```
 
-The card has no visual editor. It finds the other sensors of the same device through `hass.entities[entity].device_id` and each entity's `translation_key`. If `translation_key` isn't available, it matches the entity id suffix `_<key>` among the entities of the same device.
+The card has no visual editor. It finds the other sensors of the same device through `hass.entities[entity].device_id` and each entity's `translation_key`, so it works with English, German and renamed entity ids. If `translation_key` isn't available, it matches the entity id suffix `_<key>` among the entities of the same device; that fallback only works for English ids.
+
+### Translations
+
+The card's texts are kept in a translation dictionary in `www/car-rental-card.js` with an English and a German entry. The card picks the entry for the user's profile language (`hass.locale.language`, then `hass.language`) and falls back to English for other languages and missing keys. Numbers and currency are formatted with the same language.
 
 ### Sections
 
@@ -221,9 +227,16 @@ Don't edit the version in `manifest.json`, `.release-please-manifest.json` or `C
 
 1. Add a `SENSOR_<NAME>` key constant to `const.py`. The key is the unique id suffix and the translation key, so don't change it after a release.
 2. Add a description to `SENSOR_DESCRIPTIONS` in `sensor.py`, usually with the `_distance`, `_percentage` or `_days` helper, and a `value_fn` that reads `CarRentalData`. If the value isn't calculated yet, extend `RentalStats` first (see [Adding a calculation](#adding-a-calculation)).
-3. Add `entity.sensor.<key>.name` to `strings.json` and `translations/en.json`. The English name must slugify to the key (for example `"KM Remaining"` → `km_remaining`): the entity id is built from it, and the card falls back to matching the `_<key>` suffix.
+3. Add `entity.sensor.<key>.name` to `strings.json`, `translations/en.json` and `translations/de.json`. The English name must slugify to the key (for example `"KM Remaining"` → `km_remaining`): on English systems the entity id is built from it, and the card falls back to matching the `_<key>` suffix.
 4. Add the key to `SENSOR_KEYS` in `www/car-rental-card.js` so the card can find the sensor.
 5. Update the sensor count (currently 15) and the sensor lists in this document and the [README](../README.md).
+
+### Adding a language
+
+1. Copy `translations/en.json` to `translations/<language>.json`, using the language code from Home Assistant's [`languages.py`](https://github.com/home-assistant/core/blob/dev/homeassistant/generated/languages.py), and translate the values. Keys and structure must match `en.json` exactly; missing keys fall back to English.
+2. Add an entry for the language to the card's translation dictionary in `www/car-rental-card.js` with the same keys as the English entry.
+3. Keep the terms consistent with Home Assistant's own translation for that language (for German: informal "du", "Integration", "Entität", "Gerät", "Konfigurieren", "km").
+4. Update the language list in the [README](../README.md#languages).
 
 ### Adding a calculation
 
