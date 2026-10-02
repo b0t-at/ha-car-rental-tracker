@@ -7,8 +7,9 @@ from typing import Final
 # Integration domain
 DOMAIN: Final = "car_rental_tracker"
 
-# Internal flags
-RESOURCE_REGISTERED_FLAG: Final = f"{DOMAIN}_resource_registered"
+# Frontend card
+CARD_FILENAME: Final = "car-rental-card.js"
+CARD_URL_PATHS: Final = (f"/hacsfiles/{DOMAIN}", f"/local/community/{DOMAIN}")
 
 # Configuration keys
 CONF_START_DATE: Final = "start_date"
@@ -23,7 +24,11 @@ DEFAULT_KM_ALLOWANCE: Final = 1000
 DEFAULT_OVERAGE_COST: Final = 0.25
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=5)
 
-# Sensor unique IDs
+# Month-start baseline: retry interval while only the estimate is available
+BASELINE_RETRY_INTERVAL: Final = timedelta(hours=1)
+STORAGE_VERSION: Final = 1
+
+# Sensor keys (unique_id suffix and translation key)
 SENSOR_CURRENT_ODOMETER: Final = "current_odometer"
 SENSOR_TOTAL_DRIVEN: Final = "total_driven"
 SENSOR_KM_ALLOWED: Final = "km_allowed"
@@ -39,12 +44,3 @@ SENSOR_DAYS_ELAPSED: Final = "days_elapsed"
 SENSOR_PROJECTED_OVERAGE: Final = "projected_overage"
 SENSOR_PROJECTED_COST: Final = "projected_cost"
 SENSOR_STATUS: Final = "status"
-
-# Status values
-STATUS_OK: Final = "ok"
-STATUS_WARNING: Final = "warning"
-STATUS_CRITICAL: Final = "critical"
-
-# Thresholds
-WARNING_THRESHOLD: Final = 0.85  # 85% usage triggers warning
-CRITICAL_THRESHOLD: Final = 1.0  # 100% usage triggers critical

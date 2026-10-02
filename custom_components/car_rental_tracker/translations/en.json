@@ -3,10 +3,10 @@
     "step": {
       "user": {
         "title": "Set up Car Rental Tracker",
-        "description": "Configure your car rental contract tracking",
+        "description": "Configure your car rental contract tracking. The odometer entity, initial odometer and allowance are treated as kilometers.",
         "data": {
           "start_date": "Start Date",
-          "end_date": "End Date",
+          "end_date": "End Date (inclusive)",
           "km_allowance_per_month": "KM Allowance per Month",
           "initial_odometer": "Initial Odometer (KM)",
           "overage_cost_per_km": "Overage Cost per KM",
@@ -16,7 +16,8 @@
     },
     "error": {
       "invalid_date_range": "End date must be after start date",
-      "invalid_date_format": "Invalid date format"
+      "invalid_date_format": "Invalid date format",
+      "invalid_odometer": "The odometer entity was not found or does not report a numeric value"
     },
     "abort": {
       "already_configured": "This car rental is already configured"
@@ -26,10 +27,10 @@
     "step": {
       "init": {
         "title": "Update Car Rental Tracker",
-        "description": "Update your car rental contract configuration",
+        "description": "Update your car rental contract configuration. The odometer entity, initial odometer and allowance are treated as kilometers.",
         "data": {
           "start_date": "Start Date",
-          "end_date": "End Date",
+          "end_date": "End Date (inclusive)",
           "km_allowance_per_month": "KM Allowance per Month",
           "initial_odometer": "Initial Odometer (KM)",
           "overage_cost_per_km": "Overage Cost per KM",
@@ -39,7 +40,91 @@
     },
     "error": {
       "invalid_date_range": "End date must be after start date",
-      "invalid_date_format": "Invalid date format"
+      "invalid_date_format": "Invalid date format",
+      "invalid_odometer": "The odometer entity was not found or does not report a numeric value",
+      "already_configured": "Another car rental with this odometer entity and start date is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_odometer": {
+        "name": "Current Odometer"
+      },
+      "total_driven": {
+        "name": "Total Driven"
+      },
+      "km_allowed": {
+        "name": "KM Allowed"
+      },
+      "km_remaining": {
+        "name": "KM Remaining"
+      },
+      "km_projected": {
+        "name": "KM Projected"
+      },
+      "time_progress": {
+        "name": "Time Progress"
+      },
+      "km_progress": {
+        "name": "KM Progress"
+      },
+      "monthly_driven": {
+        "name": "Monthly Driven",
+        "state_attributes": {
+          "monthly_baseline_source": {
+            "name": "Monthly baseline source",
+            "state": {
+              "initial_odometer": "Initial odometer",
+              "history_before_month_start": "History before month start",
+              "history_after_month_start": "History after month start",
+              "estimated_fallback": "Estimated from daily average"
+            }
+          },
+          "monthly_baseline": {
+            "name": "Monthly baseline"
+          }
+        }
+      },
+      "monthly_remaining": {
+        "name": "Monthly Remaining"
+      },
+      "monthly_allowance": {
+        "name": "Monthly Allowance"
+      },
+      "days_remaining": {
+        "name": "Days Remaining"
+      },
+      "days_elapsed": {
+        "name": "Days Elapsed"
+      },
+      "projected_overage": {
+        "name": "Projected Overage"
+      },
+      "projected_cost": {
+        "name": "Projected Cost"
+      },
+      "status": {
+        "name": "Status",
+        "state": {
+          "ok": "OK",
+          "warning": "Warning",
+          "critical": "Critical"
+        },
+        "state_attributes": {
+          "is_over_limit": {
+            "name": "Over limit"
+          },
+          "is_projected_over": {
+            "name": "Projected over limit"
+          },
+          "days_elapsed": {
+            "name": "Days elapsed"
+          },
+          "days_total": {
+            "name": "Days total"
+          }
+        }
+      }
     }
   }
 }
