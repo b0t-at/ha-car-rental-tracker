@@ -5,19 +5,24 @@
         "title": "Set up Car Rental Tracker",
         "description": "Configure your car rental contract tracking. The odometer entity, initial odometer and allowance are treated as kilometers.",
         "data": {
+          "name": "Name",
           "start_date": "Start Date",
           "end_date": "End Date (inclusive)",
           "km_allowance_per_month": "KM Allowance per Month",
           "initial_odometer": "Initial Odometer (KM)",
           "overage_cost_per_km": "Overage Cost per KM",
           "odometer_entity": "Odometer Sensor Entity"
+        },
+        "data_description": {
+          "name": "Used as the device name and for the entity ids, for example the name of the car"
         }
       }
     },
     "error": {
       "invalid_date_range": "End date must be after start date",
       "invalid_date_format": "Invalid date format",
-      "invalid_odometer": "The odometer entity was not found or does not report a numeric value"
+      "invalid_odometer": "The odometer entity was not found or does not report a numeric value",
+      "invalid_name": "Please enter a name"
     },
     "abort": {
       "already_configured": "This car rental is already configured"
@@ -29,12 +34,16 @@
         "title": "Update Car Rental Tracker",
         "description": "Update your car rental contract configuration. The odometer entity, initial odometer and allowance are treated as kilometers.",
         "data": {
+          "name": "Name",
           "start_date": "Start Date",
           "end_date": "End Date (inclusive)",
           "km_allowance_per_month": "KM Allowance per Month",
           "initial_odometer": "Initial Odometer (KM)",
           "overage_cost_per_km": "Overage Cost per KM",
           "odometer_entity": "Odometer Sensor Entity"
+        },
+        "data_description": {
+          "name": "Used as the device name. Entity ids are created once and keep their name when you rename the contract"
         }
       }
     },
@@ -42,7 +51,8 @@
       "invalid_date_range": "End date must be after start date",
       "invalid_date_format": "Invalid date format",
       "invalid_odometer": "The odometer entity was not found or does not report a numeric value",
-      "already_configured": "Another car rental with this odometer entity and start date is already configured"
+      "already_configured": "Another car rental with this odometer entity and start date is already configured",
+      "invalid_name": "Please enter a name"
     }
   },
   "entity": {
@@ -124,6 +134,18 @@
             "name": "Days total"
           }
         }
+      },
+      "target_today": {
+        "name": "Target Today"
+      },
+      "deviation_today": {
+        "name": "Deviation Today"
+      },
+      "daily_average": {
+        "name": "Daily Average"
+      },
+      "daily_target": {
+        "name": "Daily Target"
       }
     }
   }

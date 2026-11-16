@@ -16,6 +16,7 @@ from baseline import (
     baseline_month,
     baseline_to_dict,
     is_fallback_final,
+    is_odometer_rollback,
     parse_odometer,
     select_month_start_baseline,
 )
@@ -253,3 +254,25 @@ class TestBaselinePersistence:
     )
     def test_invalid_data_is_ignored(self, data):
         assert baseline_from_dict(data, ENTITY) is None
+
+
+class TestOdometerRollback:
+    """Lower readings are ignored unless they are tiny or entered by hand."""
+
+    def test_first_reading_is_never_a_rollback(self):
+        assert not is_odometer_rollback(None, 100.0, tolerance=1.0, is_manual=False)
+
+    def test_increase_is_accepted(self):
+        assert not is_odometer_rollback(100.0, 150.0, tolerance=1.0, is_manual=False)
+
+    def test_drop_within_tolerance_is_accepted(self):
+        assert not is_odometer_rollback(100.0, 99.0, tolerance=1.0, is_manual=False)
+
+    def test_drop_beyond_tolerance_is_a_rollback(self):
+        assert is_odometer_rollback(100.0, 98.9, tolerance=1.0, is_manual=False)
+
+    def test_drop_to_zero_is_a_rollback(self):
+        assert is_odometer_rollback(52180.0, 0.0, tolerance=1.0, is_manual=False)
+
+    def test_manual_correction_is_accepted(self):
+        assert not is_odometer_rollback(52000.0, 25000.0, tolerance=1.0, is_manual=True)

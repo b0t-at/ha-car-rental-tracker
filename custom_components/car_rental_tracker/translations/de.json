@@ -5,19 +5,24 @@
         "title": "Car Rental Tracker einrichten",
         "description": "Konfiguriere die Überwachung deines Mietwagenvertrags. Die Kilometerstand-Entität, der Anfangskilometerstand und das Kilometerkontingent werden als Kilometer interpretiert.",
         "data": {
+          "name": "Name",
           "start_date": "Startdatum",
           "end_date": "Enddatum (einschließlich)",
           "km_allowance_per_month": "Kilometerkontingent pro Monat",
           "initial_odometer": "Anfangskilometerstand (km)",
           "overage_cost_per_km": "Kosten pro Mehrkilometer",
           "odometer_entity": "Sensor-Entität für den Kilometerstand"
+        },
+        "data_description": {
+          "name": "Wird als Gerätename und für die Entitäts-IDs verwendet, zum Beispiel der Name des Autos"
         }
       }
     },
     "error": {
       "invalid_date_range": "Das Enddatum muss nach dem Startdatum liegen",
       "invalid_date_format": "Ungültiges Datumsformat",
-      "invalid_odometer": "Die Kilometerstand-Entität wurde nicht gefunden oder liefert keinen numerischen Wert"
+      "invalid_odometer": "Die Kilometerstand-Entität wurde nicht gefunden oder liefert keinen numerischen Wert",
+      "invalid_name": "Bitte gib einen Namen ein"
     },
     "abort": {
       "already_configured": "Dieser Mietvertrag ist bereits konfiguriert"
@@ -29,12 +34,16 @@
         "title": "Car Rental Tracker aktualisieren",
         "description": "Aktualisiere die Konfiguration deines Mietwagenvertrags. Die Kilometerstand-Entität, der Anfangskilometerstand und das Kilometerkontingent werden als Kilometer interpretiert.",
         "data": {
+          "name": "Name",
           "start_date": "Startdatum",
           "end_date": "Enddatum (einschließlich)",
           "km_allowance_per_month": "Kilometerkontingent pro Monat",
           "initial_odometer": "Anfangskilometerstand (km)",
           "overage_cost_per_km": "Kosten pro Mehrkilometer",
           "odometer_entity": "Sensor-Entität für den Kilometerstand"
+        },
+        "data_description": {
+          "name": "Wird als Gerätename verwendet. Entitäts-IDs werden einmalig erstellt und behalten ihren Namen, wenn du den Vertrag umbenennst"
         }
       }
     },
@@ -42,7 +51,8 @@
       "invalid_date_range": "Das Enddatum muss nach dem Startdatum liegen",
       "invalid_date_format": "Ungültiges Datumsformat",
       "invalid_odometer": "Die Kilometerstand-Entität wurde nicht gefunden oder liefert keinen numerischen Wert",
-      "already_configured": "Ein anderer Mietvertrag mit dieser Kilometerstand-Entität und diesem Startdatum ist bereits konfiguriert"
+      "already_configured": "Ein anderer Mietvertrag mit dieser Kilometerstand-Entität und diesem Startdatum ist bereits konfiguriert",
+      "invalid_name": "Bitte gib einen Namen ein"
     }
   },
   "entity": {
@@ -124,6 +134,18 @@
             "name": "Tage insgesamt"
           }
         }
+      },
+      "target_today": {
+        "name": "Soll heute"
+      },
+      "deviation_today": {
+        "name": "Abweichung heute"
+      },
+      "daily_average": {
+        "name": "Tagesdurchschnitt"
+      },
+      "daily_target": {
+        "name": "Tagessoll"
       }
     }
   }

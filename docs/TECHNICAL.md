@@ -38,6 +38,7 @@ custom_components/car_rental_tracker/
 - A `DataUpdateCoordinator`, one per config entry, stored in `entry.runtime_data`
 - Listens for state changes of the odometer entity and recalculates every 5 minutes, so date-based values (days, time progress) stay current
 - Remembers the last two valid odometer readings and keeps using the last valid one while the entity is unavailable or not numeric
+- Ignores a reading more than `ODOMETER_ROLLBACK_TOLERANCE` (1 km) below the last accepted one, or below the initial odometer before any reading was accepted (`is_odometer_rollback()` in `baseline.py`). Lower readings are accepted once the source has reported them for `ODOMETER_ROLLBACK_ACCEPT_AFTER` (1 hour; checked on state changes and on the 5-minute refresh). `input_number` sources are exempt, because their values are set by hand.
 - Determines the month-start odometer reading from those readings and the recorder history, and persists it (see [Monthly statistics](#monthly-statistics))
 - Calls `calculate_rental_stats()` and provides a `CarRentalData` (stats, current odometer, `monthly_baseline`, `monthly_baseline_source`), or `None` until there has been a valid reading
 
@@ -46,13 +47,16 @@ custom_components/car_rental_tracker/
 
 #### Sensor entities (sensor.py)
 - Each sensor is a `CarRentalSensorEntityDescription` in `SENSOR_DESCRIPTIONS` with a `value_fn` (and optionally an `attributes_fn`) that reads `CarRentalData`. One entity class, `CarRentalSensor`, serves all of them.
-- 15 sensors per config entry, all on one device named `Car Rental Tracker (<start date>)`. The unique id is `<entry_id>_<key>`.
+- 19 sensors per config entry, all on one device named after the contract (`contract_name()` in `__init__.py`: the `name` from the entry data, or `Car Rental Tracker (<start date>)` for entries without one). The unique id is `<entry_id>_<key>`.
 - Push-based: they update when the coordinator notifies them; they don't poll. They are unavailable while the coordinator data is `None`.
-- `has_entity_name` is set and each sensor has a `translation_key` equal to its key (`current_odometer`, `total_driven`, `km_allowed`, `km_remaining`, `km_projected`, `time_progress`, `km_progress`, `monthly_driven`, `monthly_remaining`, `monthly_allowance`, `days_remaining`, `days_elapsed`, `projected_overage`, `projected_cost`, `status`). Entity ids therefore look like `sensor.car_rental_tracker_2024_01_01_km_remaining`. Home Assistant creates the entity ids once; changing the start date later renames the device but keeps the existing ids.
-- The device name is not translated. The entity names come from `translations/<language>.json`. Home Assistant builds the object id from the entity name in `hass.config.language` if that language is in `homeassistant.generated.languages.NATIVE_ENTITY_IDS` (which includes `de`), otherwise from the English name (`EntityPlatform.async_load_translations` and `Entity.suggested_object_id` in Home Assistant core). With German as the system language, the id suffix is therefore the slugified German name, not the key. Code must never derive a sensor from its entity id; use the unique id or the `translation_key`.
+- `has_entity_name` is set and each sensor has a `translation_key` equal to its key (`current_odometer`, `total_driven`, `km_allowed`, `km_remaining`, `km_projected`, `time_progress`, `km_progress`, `monthly_driven`, `monthly_remaining`, `monthly_allowance`, `days_remaining`, `days_elapsed`, `projected_overage`, `projected_cost`, `status`, `target_today`, `deviation_today`, `daily_average`, `daily_target`).
+- Each sensor requests the entity id `sensor.<slugified contract name>_<key>` (`entity_object_id()` in `sensor.py`, set through `async_generate_entity_id`), so ids don't depend on the system language, for example `sensor.car_rental_tracker_km_remaining`. The entity registry only uses it for a new entity: existing entities keep their ids, and a taken id gets a suffix such as `_2`. Changing the name later renames the device but keeps the existing ids.
+- The device name is not translated. The entity names come from `translations/<language>.json`. Home Assistant builds the object id from the entity name in `hass.config.language` if that language is in `homeassistant.generated.languages.NATIVE_ENTITY_IDS` (which includes `de`), otherwise from the English name (`EntityPlatform.async_load_translations` and `Entity.suggested_object_id` in Home Assistant core). Entities created before 1.6 didn't request an id, so with German as the system language their id suffix is the slugified German name, not the key. Code must never derive a sensor from its entity id; use the unique id or the `translation_key`.
 - Status is an `enum` sensor with the options `ok`, `warning` and `critical` (translated). Its attributes are `is_over_limit`, `is_projected_over`, `days_elapsed` and `days_total`.
 - Distance sensors use the `distance` device class and km. Current Odometer is `total_increasing`, Total Driven is `total`, and the other distance sensors (including KM Allowed) are `measurement`.
 - Days Remaining and Days Elapsed use the `duration` device class with the unit `d`.
+- Daily Average and Daily Target use the unit `km/d` without a device class (Home Assistant has no km per day unit) and the state class `measurement`. Daily Average is unknown before the contract starts.
+- Target Today and Deviation Today are `measurement` distance sensors; Deviation Today is positive when more was driven than the target line allows.
 - Projected Cost is a `monetary` sensor without a state class; its unit is the Home Assistant currency (`hass.config.currency`).
 - Monthly Driven has the attributes `monthly_baseline` (the month-start odometer reading from history; empty when the initial odometer or the estimate is used) and `monthly_baseline_source` (where the month-start reading came from).
 
@@ -113,15 +117,19 @@ A history baseline is computed once per month and persisted with `homeassistant.
 #### Setup
 1. **Settings** → **Devices & services** → **Add integration** → **Car Rental Tracker**
 2. Form fields:
+   - Name (text; default "Car Rental Tracker"; used as device name, entry title and entity id prefix; leading and trailing spaces are removed, an empty name is rejected with `invalid_name`)
    - Start and end date (date pickers)
    - Monthly KM allowance, initial odometer, overage cost per KM (number inputs)
    - Odometer entity (entity selector; `sensor` or `input_number` domain)
 3. The flow checks that the end date is after the start date and that the odometer entity exists and has a numeric state (`invalid_odometer` otherwise). The schema requires a monthly allowance of at least 1 and a non-negative initial odometer and overage cost.
-4. The entry creates one device with 15 sensors.
+4. The entry creates one device with 19 sensors.
+
+#### Entry migration
+- The config entry version is 1.2. `async_migrate_entry` moves 1.1 entries to 1.2 by storing their previous device name (`Car Rental Tracker (<start date>)`) as `name`, so the device keeps its name. The generated title `Car Rental (<start date>)` becomes the name; a title the user changed is kept. Entity ids are not touched.
 
 #### Options flow
 - **Configure** on the entry changes the same values, with the same checks. An unchanged odometer entity isn't checked again, so a temporarily unavailable source doesn't block editing the other values.
-- The entry's unique id (`<odometer entity>_<start date>`) and title follow the edited values; a combination that another entry already uses is rejected (`already_configured`).
+- The entry's unique id (`<odometer entity>_<start date>`) and title (the name) follow the edited values; a combination that another entry already uses is rejected (`already_configured`).
 - Saving reloads the entry. Existing entity ids are kept.
 
 ### Data flow
@@ -144,17 +152,21 @@ Recorder history (month start)┘
 
 ### Loading
 
-`__init__.py` serves `www/` at `/hacsfiles/car_rental_tracker/` (and `/local/community/car_rental_tracker/`) and registers `/hacsfiles/car_rental_tracker/car-rental-card.js` with `homeassistant.components.frontend.add_extra_js_url`, so every dashboard loads the card without a Lovelace resource. A manually added resource still works: the card only calls `customElements.define` if `car-rental-card` isn't defined yet.
+`__init__.py` serves the card at `/car_rental_tracker/car-rental-card.js` through `CarRentalCardView`, which sends `Cache-Control: no-cache` so browsers revalidate it (a static path sends no cache header, which let browsers keep an old card after updates). It registers that URL with `?v=<first 12 hex digits of the file's SHA-256>` through `homeassistant.components.frontend.add_extra_js_url`, so every dashboard loads the card without a Lovelace resource and every change of the file gets a new URL. `www/` is still served at `/hacsfiles/car_rental_tracker/` and `/local/community/car_rental_tracker/` for resources added by hand in older versions.
+
+A custom element can only be defined once. If another copy of the card (for example a cached manual resource) defined `car-rental-card` first, the card copies its own prototype and static methods onto that class and logs a console warning, so the visual editor and new options still work. Cards created by the old copy rebuild their markup on the next render (`_ensureDom` compares the template it was built with), and the display options are merged with their defaults on every read (`_options()`), because such cards were configured without them.
 
 ### Configuration
 
 ```yaml
 type: custom:car-rental-card
-entity: sensor.car_rental_tracker_2024_01_01_status   # required: any sensor of the tracker device
+entity: sensor.car_rental_tracker_status   # required: any sensor of the tracker device
 title: My Rental Car                                   # optional
+show_progress: true                                   # optional, also show_month, show_projections, show_alerts
+clamp_percent: false                                  # optional: cap shown percentages at 100 %
 ```
 
-The visual editor comes from `static getConfigForm()` (rendered by HA's `ha-form`): an entity picker filtered to `car_rental_tracker` sensors and a text field for the title. The card finds the other sensors of the same device through `hass.entities[entity].device_id` and each entity's `translation_key`, so it works with English, German and renamed entity ids. If `translation_key` isn't available, it matches the entity id suffix `_<key>` among the entities of the same device; that fallback only works for English ids.
+The visual editor comes from `static getConfigForm()` (rendered by HA's `ha-form`): an entity picker filtered to `car_rental_tracker` sensors, a text field for the title, and an expandable "Display options" section (`flatten: true`, so the options stay at the top level of the card config) with the section toggles and `clamp_percent`. `setConfig` rejects non-boolean option values. The card finds the other sensors of the same device through `hass.entities[entity].device_id` and each entity's `translation_key`, so it works with English, German and renamed entity ids. If `translation_key` isn't available, it matches the entity id suffix `_<key>` among the entities of the same device; that fallback only works for English ids.
 
 ### Translations
 
@@ -163,17 +175,19 @@ The card's texts are kept in a translation dictionary in `www/car-rental-card.js
 ### Sections
 
 1. **Main stats**: current odometer, total driven, KM remaining, days left
-2. **Progress**: time and KM progress bars with a pace indicator
+2. **Progress**: time and KM progress bars with a pace indicator, and the target line: target today, deviation, actual and target KM per day (hidden when the integration doesn't provide these sensors)
 3. **This month**: calendar-month driven, remaining and allowance with a progress bar
 4. **Projections**: projected KM, overage and cost
 5. **Alerts**: warning and critical messages
+
+Sections 2 to 5 can be hidden with `show_progress`, `show_month`, `show_projections` and `show_alerts`; `getCardSize()` counts only the visible ones.
 
 ## Testing
 
 Unit tests cover the Home Assistant-free modules:
 
 - `tests/test_calculations.py`: `calculations.py` (months between dates, allowance, day counts, projection and status, monthly statistics), using fixed `today` dates
-- `tests/test_baseline.py`: month-start baseline selection in `baseline.py`
+- `tests/test_baseline.py`: month-start baseline selection and the odometer rollback check in `baseline.py`
 - `tests/conftest.py`: puts `custom_components/car_rental_tracker` on `sys.path` so these modules import without Home Assistant
 
 Run them locally:
@@ -186,7 +200,10 @@ python -m pytest tests -v
 `sensor.py`, `config_flow.py`, `__init__.py` and the card have no automated tests. Check them by hand:
 
 - [ ] Set up the integration through the UI, with a `sensor` and with an `input_number` as the odometer
-- [ ] All 15 sensors are created with the expected entity ids
+- [ ] All 19 sensors are created with English entity ids, also with German as the system language
+- [ ] An entry created with 1.5 keeps its device name and entity ids after the update
+- [ ] A lower `sensor` reading is ignored with a warning; a lower `input_number` value is accepted
+- [ ] The card editor shows the display options, also with a leftover Lovelace resource
 - [ ] Options flow changes are applied after the reload
 - [ ] The card loads without a Lovelace resource and shows all sections
 - [ ] Two config entries with separate cards show their own values

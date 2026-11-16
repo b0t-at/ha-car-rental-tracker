@@ -8,6 +8,8 @@
  *   type: custom:car-rental-card
  *   entity: <any sensor of a Car Rental Tracker device, e.g. its Status sensor>
  *   title: <optional card title>
+ *   show_progress / show_month / show_projections / show_alerts: <optional, default true>
+ *   clamp_percent: <optional, default false; caps shown percentages at 100 %>
  */
 
 const CARD_TYPE = 'car-rental-card';
@@ -33,12 +35,32 @@ const SENSOR_KEYS = [
   'projected_overage',
   'projected_cost',
   'status',
+  'target_today',
+  'deviation_today',
+  'daily_average',
+  'daily_target',
 ];
+
+// Optional display options and their defaults.
+const DISPLAY_DEFAULTS = Object.freeze({
+  show_progress: true,
+  show_month: true,
+  show_projections: true,
+  show_alerts: true,
+  clamp_percent: false,
+});
 
 // Card is "ahead of pace" when usage exceeds time elapsed by more than this.
 const PACE_TOLERANCE_PCT = 5;
 const PACE_WARNING_PCT = 10;
-const CARD_SIZE = 12;
+// Card size in rows: header and main stats, plus each visible section.
+const CARD_SIZE_BASE = 3;
+const SECTION_SIZES = Object.freeze({
+  show_progress: 4,
+  show_month: 2,
+  show_projections: 2,
+  show_alerts: 1,
+});
 const CARD_SIZE_ERROR = 2;
 
 // ---------------------------------------------------------------------------
@@ -63,6 +85,10 @@ const TRANSLATIONS = {
     pace_on_track: 'On Pace',
     pace_ahead: '{percent} Ahead - Slow Down!',
     pace_behind: '{percent} Behind - You Can Drive More',
+    target_today: 'Target Today',
+    deviation_today: 'Deviation',
+    daily_average: 'Per Day (Actual)',
+    daily_target: 'Per Day (Target)',
     section_month: 'This Month',
     monthly_driven: 'Driven',
     monthly_remaining: 'Remaining',
@@ -86,13 +112,22 @@ const TRANSLATIONS = {
       'Related Car Rental Tracker sensors not found. Please check the configured entity.',
     error_entity_required:
       "Please set 'entity' to a sensor of your Car Rental Tracker device " +
-      '(for example its Status sensor, sensor.car_rental_tracker_<start_date>_status)',
+      '(for example its Status sensor, sensor.car_rental_tracker_status)',
     error_title_type: "'title' must be a string",
+    error_option_type: "'{option}' must be true or false",
     editor_entity: 'Contract sensor',
     editor_entity_helper:
       'Any sensor of the Car Rental Tracker contract, usually its Status sensor',
     editor_title: 'Title (optional)',
     editor_title_helper: 'Leave empty to use "{default}"',
+    editor_display: 'Display options',
+    editor_show_progress: 'Show progress overview',
+    editor_show_month: 'Show this month',
+    editor_show_projections: 'Show projections',
+    editor_show_alerts: 'Show alerts',
+    editor_clamp_percent: 'Cap percentages at 100 %',
+    editor_clamp_percent_helper:
+      'Shows 100 % instead of the real value once the allowance is used up',
   },
   de: {
     card_name: 'Car-Rental-Tracker-Karte',
@@ -108,6 +143,10 @@ const TRANSLATIONS = {
     pace_on_track: 'Im Plan',
     pace_ahead: '{percent} über dem Plan – fahr langsamer!',
     pace_behind: '{percent} unter dem Plan – du kannst mehr fahren',
+    target_today: 'Soll heute',
+    deviation_today: 'Abweichung',
+    daily_average: 'Pro Tag (Ist)',
+    daily_target: 'Pro Tag (Soll)',
     section_month: 'Dieser Monat',
     monthly_driven: 'Gefahren',
     monthly_remaining: 'Verbleibend',
@@ -131,13 +170,22 @@ const TRANSLATIONS = {
       'Zugehörige Car-Rental-Tracker-Sensoren nicht gefunden. Bitte überprüfe die konfigurierte Entität.',
     error_entity_required:
       "Bitte setze 'entity' auf einen Sensor deines Car-Rental-Tracker-Geräts " +
-      '(zum Beispiel dessen Status-Sensor, sensor.car_rental_tracker_<start_date>_status)',
+      '(zum Beispiel dessen Status-Sensor, sensor.car_rental_tracker_status)',
     error_title_type: "'title' muss eine Zeichenkette sein",
+    error_option_type: "'{option}' muss true oder false sein",
     editor_entity: 'Vertragssensor',
     editor_entity_helper:
       'Ein beliebiger Sensor des Car-Rental-Tracker-Vertrags, üblicherweise der Status-Sensor',
     editor_title: 'Titel (optional)',
     editor_title_helper: 'Leer lassen, um „{default}“ zu verwenden',
+    editor_display: 'Anzeigeoptionen',
+    editor_show_progress: 'Fortschrittsübersicht anzeigen',
+    editor_show_month: '„Dieser Monat“ anzeigen',
+    editor_show_projections: 'Prognosen anzeigen',
+    editor_show_alerts: 'Warnungen anzeigen',
+    editor_clamp_percent: 'Prozentwerte bei 100 % begrenzen',
+    editor_clamp_percent_helper:
+      'Zeigt 100 % statt des tatsächlichen Werts, sobald das Kontingent aufgebraucht ist',
   },
 };
 
@@ -238,7 +286,7 @@ const cardTemplate = (t) => `
         ${statItem('daysRemaining', 'mdi:calendar-clock', t('stat_days_remaining'))}
       </div>
 
-      <section class="section">
+      <section class="section" data-ref="progressSection">
         <h3>${escapeHtml(t('section_progress'))}</h3>
         ${progressItem('time', 'mdi:clock-outline', t('progress_time'))}
         ${progressItem('km', 'mdi:speedometer', t('progress_km'))}
@@ -246,9 +294,15 @@ const cardTemplate = (t) => `
           <ha-icon data-ref="paceIcon"></ha-icon>
           <span data-ref="paceText"></span>
         </div>
+        <div class="target-stats" data-ref="targets">
+          ${monthlyItem('targetToday', t('target_today'))}
+          ${monthlyItem('deviationToday', t('deviation_today'))}
+          ${monthlyItem('dailyAverage', t('daily_average'))}
+          ${monthlyItem('dailyTarget', t('daily_target'))}
+        </div>
       </section>
 
-      <section class="section">
+      <section class="section" data-ref="monthSection">
         <h3>${escapeHtml(t('section_month'))}</h3>
         <div class="monthly-stats">
           ${monthlyItem('monthlyDriven', t('monthly_driven'))}
@@ -262,7 +316,7 @@ const cardTemplate = (t) => `
         <div class="monthly-percentage" data-ref="monthlyValue"></div>
       </section>
 
-      <section class="section">
+      <section class="section" data-ref="projectionsSection">
         <h3>${escapeHtml(t('section_projections'))}</h3>
         <div class="projection-stats">
           ${projectionItem('projected', 'mdi:chart-line', t('projection_km'))}
@@ -310,7 +364,15 @@ class CarRentalCard extends HTMLElement {
     const labels = {
       entity: [t('editor_entity'), t('editor_entity_helper')],
       title: [t('editor_title'), t('editor_title_helper', { default: t('default_title') })],
+      display: [t('editor_display')],
+      clamp_percent: [t('editor_clamp_percent'), t('editor_clamp_percent_helper')],
     };
+    const toggles = Object.keys(DISPLAY_DEFAULTS).map((name) => {
+      if (!labels[name]) {
+        labels[name] = [t(`editor_${name}`)];
+      }
+      return { name, default: DISPLAY_DEFAULTS[name], selector: { boolean: {} } };
+    });
     return {
       schema: [
         {
@@ -319,6 +381,8 @@ class CarRentalCard extends HTMLElement {
           selector: { entity: { filter: { integration: PLATFORM, domain: 'sensor' } } },
         },
         { name: 'title', selector: { text: {} } },
+        // flatten keeps the options at the top level of the card config.
+        { name: 'display', type: 'expandable', flatten: true, schema: toggles },
       ],
       computeLabel: (schema) => (labels[schema.name] || [])[0],
       computeHelper: (schema) => (labels[schema.name] || [])[1],
@@ -331,6 +395,12 @@ class CarRentalCard extends HTMLElement {
     }
     if (config.title !== undefined && typeof config.title !== 'string') {
       throw new Error(this._t('error_title_type'));
+    }
+    const invalidOption = Object.keys(DISPLAY_DEFAULTS).find(
+      (option) => config[option] !== undefined && typeof config[option] !== 'boolean'
+    );
+    if (invalidOption) {
+      throw new Error(this._t('error_option_type', { option: invalidOption }));
     }
     this._config = { ...config };
     this._ids = null;
@@ -357,7 +427,14 @@ class CarRentalCard extends HTMLElement {
   }
 
   getCardSize() {
-    return this._isError ? CARD_SIZE_ERROR : CARD_SIZE;
+    if (this._isError) {
+      return CARD_SIZE_ERROR;
+    }
+    const config = this._options();
+    return Object.entries(SECTION_SIZES).reduce(
+      (size, [option, rows]) => (config[option] ? size + rows : size),
+      CARD_SIZE_BASE
+    );
   }
 
   getGridOptions() {
@@ -461,9 +538,12 @@ class CarRentalCard extends HTMLElement {
   }
 
   _ensureDom() {
-    if (this._refs) {
+    // A card created by an older copy of this file has markup without the
+    // newer elements, so it is rebuilt with the current template.
+    if (this._refs && this._template === cardTemplate) {
       return;
     }
+    this._template = cardTemplate;
     const template = cardTemplate((key, params) => this._t(key, params));
     this.shadowRoot.innerHTML = `<style>${CarRentalCard._styles()}</style>${template}`;
     this._refs = {};
@@ -499,13 +579,24 @@ class CarRentalCard extends HTMLElement {
       return;
     }
 
-    this._refs.title.textContent = this._config.title || this._t('default_title');
+    const config = this._options();
+    this._refs.title.textContent = config.title || this._t('default_title');
     this._renderStatus(sensors.status);
     this._renderMainStats(sensors);
-    this._renderProgress(sensors);
-    this._renderMonthly(sensors);
-    this._renderProjections(sensors);
-    this._renderAlerts(sensors);
+    this._refs.progressSection.hidden = !config.show_progress;
+    this._refs.monthSection.hidden = !config.show_month;
+    this._refs.projectionsSection.hidden = !config.show_projections;
+    if (config.show_progress) {
+      this._renderProgress(sensors);
+      this._renderTargets(sensors);
+    }
+    if (config.show_month) {
+      this._renderMonthly(sensors);
+    }
+    if (config.show_projections) {
+      this._renderProjections(sensors);
+    }
+    this._renderAlerts(config.show_alerts ? sensors : null);
   }
 
   _renderStatus(stateObj) {
@@ -566,6 +657,27 @@ class CarRentalCard extends HTMLElement {
     this._refs.paceText.textContent = text;
   }
 
+  _renderTargets(s) {
+    // Older integration versions do not provide the target sensors.
+    const targets = this._refs.targets;
+    targets.hidden = !s.target_today && !s.deviation_today;
+    if (targets.hidden) {
+      return;
+    }
+    this._refs.targetToday.textContent = this._formatDistance(s.target_today, 0);
+    this._refs.dailyAverage.textContent = this._formatDistance(s.daily_average, 1, 'km/d');
+    this._refs.dailyTarget.textContent = this._formatDistance(s.daily_target, 1, 'km/d');
+
+    // Positive deviation: more driven than the target line allows.
+    const deviation = this._num(s.deviation_today);
+    const deviationEl = this._refs.deviationToday;
+    deviationEl.textContent = deviation === null
+      ? DASH
+      : `${this._formatNumber(deviation, 0, { signDisplay: 'exceptZero' })} ${this._unit(s.deviation_today, 'km')}`;
+    deviationEl.classList.toggle('over', deviation !== null && deviation > 0);
+    deviationEl.classList.toggle('under', deviation !== null && deviation < 0);
+  }
+
   _renderMonthly(s) {
     const driven = this._num(s.monthly_driven);
     const remaining = this._num(s.monthly_remaining);
@@ -591,7 +703,7 @@ class CarRentalCard extends HTMLElement {
     this._setBar('monthly', progress, this._progressClass(progress, elapsedPct));
     this._refs.monthlyValue.textContent = progress === null
       ? DASH
-      : this._t('monthly_used', { percent: this._formatPercent(progress) });
+      : this._t('monthly_used', { percent: this._formatPercent(this._displayPercent(progress)) });
   }
 
   _renderProjections(s) {
@@ -608,8 +720,9 @@ class CarRentalCard extends HTMLElement {
     }
   }
 
+  // s is null when alerts are switched off.
   _renderAlerts(s) {
-    const alerts = this._buildAlerts(s);
+    const alerts = s ? this._buildAlerts(s) : [];
     const signature = JSON.stringify(alerts);
     if (signature === this._alertsSignature) {
       return;
@@ -677,12 +790,23 @@ class CarRentalCard extends HTMLElement {
       bar.setAttribute('aria-valuetext', this._t('unavailable'));
     } else {
       bar.setAttribute('aria-valuenow', String(Math.round(clamped)));
-      bar.setAttribute('aria-valuetext', this._formatPercent(value));
+      bar.setAttribute('aria-valuetext', this._formatPercent(this._displayPercent(value)));
     }
     const label = this._refs[`${ref}Value`];
     if (label && ref !== 'monthly') {
-      label.textContent = value === null ? DASH : this._formatPercent(value);
+      label.textContent = value === null ? DASH : this._formatPercent(this._displayPercent(value));
     }
+  }
+
+  // Percentage as shown to the user; capped at 100 with clamp_percent.
+  _displayPercent(value) {
+    return this._options().clamp_percent ? Math.min(value, 100) : value;
+  }
+
+  // Config with the display defaults. Merged on every read, because a card
+  // configured by an older copy of this file has a config without them.
+  _options() {
+    return { ...DISPLAY_DEFAULTS, ...this._config };
   }
 
   // ---------------------------------------------------------------------------
@@ -731,8 +855,8 @@ class CarRentalCard extends HTMLElement {
     return (this._hass.locale && this._hass.locale.language) || this._hass.language || undefined;
   }
 
-  _formatNumber(value, digits = 1) {
-    const options = { maximumFractionDigits: digits };
+  _formatNumber(value, digits = 1, extraOptions = {}) {
+    const options = { maximumFractionDigits: digits, ...extraOptions };
     try {
       return value.toLocaleString(this._language(), options);
     } catch (err) {
@@ -740,12 +864,12 @@ class CarRentalCard extends HTMLElement {
     }
   }
 
-  _formatDistance(stateObj, digits = 1) {
+  _formatDistance(stateObj, digits = 1, fallbackUnit = 'km') {
     const num = this._num(stateObj);
     if (num === null) {
       return DASH;
     }
-    return `${this._formatNumber(num, digits)} ${this._unit(stateObj, 'km')}`;
+    return `${this._formatNumber(num, digits)} ${this._unit(stateObj, fallbackUnit)}`;
   }
 
   _formatCost(stateObj) {
@@ -862,6 +986,12 @@ class CarRentalCard extends HTMLElement {
       .monthly-value {
         display: block; font-size: 18px; font-weight: 600; color: var(--primary-text-color);
       }
+      .target-stats {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 12px; margin-top: 16px; text-align: center;
+      }
+      .monthly-value.over { color: var(--crt-warning); }
+      .monthly-value.under { color: var(--crt-ok); }
       .monthly-progress { height: 16px; margin-bottom: 8px; }
       .monthly-percentage { text-align: center; font-size: 12px; color: var(--secondary-text-color); }
 
@@ -897,7 +1027,33 @@ class CarRentalCard extends HTMLElement {
   }
 }
 
-if (!customElements.get(CARD_TYPE)) {
+// Copies this file's methods onto a card class that another copy of the card
+// (for example an outdated, cached Lovelace resource) registered first. A
+// custom element cannot be defined twice, so without this the outdated copy
+// would win, and the visual editor and new options would be missing.
+const upgradeDefinedCard = (defined) => {
+  const copy = (source, target, skip) => {
+    for (const name of Object.getOwnPropertyNames(source)) {
+      if (!skip.includes(name)) {
+        Object.defineProperty(target, name, Object.getOwnPropertyDescriptor(source, name));
+      }
+    }
+  };
+  copy(CarRentalCard.prototype, defined.prototype, ['constructor']);
+  copy(CarRentalCard, defined, ['length', 'name', 'prototype']);
+};
+
+const definedCard = customElements.get(CARD_TYPE);
+if (definedCard) {
+  if (definedCard.toString() !== CarRentalCard.toString()) {
+    upgradeDefinedCard(definedCard);
+    console.warn(
+      `${CARD_TYPE}: another version of the card was loaded first and has been ` +
+        'updated in place. Remove any Lovelace resource pointing to ' +
+        'car-rental-card.js; the integration loads the card by itself.'
+    );
+  }
+} else {
   customElements.define(CARD_TYPE, CarRentalCard);
 
   // Register the card with Home Assistant's card picker.

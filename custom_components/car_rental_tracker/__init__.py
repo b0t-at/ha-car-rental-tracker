@@ -6,15 +6,19 @@ detailed statistics, projections, and visual dashboard capabilities.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from functools import partial
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
 
+from aiohttp import web
+
 from homeassistant.components.frontend import add_extra_js_url, remove_extra_js_url
-from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, Platform, UnitOfLength
 from homeassistant.core import (
@@ -29,7 +33,6 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
 
 from .baseline import (
@@ -42,6 +45,7 @@ from .baseline import (
     baseline_month,
     baseline_to_dict,
     is_fallback_final,
+    is_odometer_rollback,
     parse_odometer,
     select_month_start_baseline,
 )
@@ -49,15 +53,20 @@ from .calculations import RentalStats, calculate_rental_stats
 from .const import (
     BASELINE_RETRY_INTERVAL,
     CARD_FILENAME,
-    CARD_URL_PATHS,
+    CARD_LEGACY_URL_PATHS,
+    CARD_URL,
     CONF_END_DATE,
     CONF_INITIAL_ODOMETER,
     CONF_KM_ALLOWANCE_PER_MONTH,
+    CONF_NAME,
     CONF_ODOMETER_ENTITY,
     CONF_OVERAGE_COST_PER_KM,
     CONF_START_DATE,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    MANUAL_ODOMETER_DOMAIN,
+    ODOMETER_ROLLBACK_ACCEPT_AFTER,
+    ODOMETER_ROLLBACK_TOLERANCE,
     STORAGE_VERSION,
 )
 
@@ -73,26 +82,53 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 DATA_CARD_URL = f"{DOMAIN}_card_url"
 DATA_CARD_LOADED = f"{DOMAIN}_card_loaded"
 
+WWW_PATH = Path(__file__).parent / "www"
+CARD_PATH = WWW_PATH / CARD_FILENAME
+# Length of the content hash used to bust the browser cache of the card
+CARD_HASH_LENGTH = 12
+
+
+class CarRentalCardView(HomeAssistantView):
+    """Serve the card so browsers revalidate it on every load.
+
+    A static path sends no Cache-Control header, which lets browsers and the
+    companion app keep using an outdated card after an update.
+    """
+
+    url = CARD_URL
+    name = f"{DOMAIN}:card"
+    requires_auth = False
+
+    async def get(self, request: web.Request) -> web.FileResponse:
+        """Return the card file."""
+        return web.FileResponse(CARD_PATH, headers={"Cache-Control": "no-cache"})
+
+
+def _card_hash() -> str:
+    """Return a short hash of the card file (blocking I/O)."""
+    digest = hashlib.sha256(CARD_PATH.read_bytes()).hexdigest()
+    return digest[:CARD_HASH_LENGTH]
+
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Car Rental Tracker component.
 
     Serves the Lovelace card and loads it in the frontend automatically.
-    This runs once per Home Assistant start, so the static paths are only
+    This runs once per Home Assistant start, so the paths are only
     registered once.
     """
-    www_path = str(Path(__file__).parent / "www")
+    hass.http.register_view(CarRentalCardView())
     await hass.http.async_register_static_paths(
         [
-            StaticPathConfig(url_path=url_path, path=www_path, cache_headers=False)
-            for url_path in CARD_URL_PATHS
+            StaticPathConfig(url_path=url_path, path=str(WWW_PATH), cache_headers=False)
+            for url_path in CARD_LEGACY_URL_PATHS
         ]
     )
 
-    integration = await async_get_integration(hass, DOMAIN)
-    hass.data[DATA_CARD_URL] = (
-        f"{CARD_URL_PATHS[0]}/{CARD_FILENAME}?v={integration.version}"
-    )
+    # The content hash changes with every change of the card, so the URL
+    # changes too and no cached copy can be used.
+    card_hash = await hass.async_add_executor_job(_card_hash)
+    hass.data[DATA_CARD_URL] = f"{CARD_URL}?v={card_hash}"
     _load_card(hass)
     return True
 
@@ -116,6 +152,43 @@ def _unload_card(hass: HomeAssistant) -> None:
     remove_extra_js_url(hass, hass.data[DATA_CARD_URL])
     hass.data[DATA_CARD_LOADED] = False
     _LOGGER.debug("Removed Car Rental Tracker card from the frontend")
+
+
+def contract_name(data: Mapping[str, Any]) -> str:
+    """Return the contract name, used as the device name.
+
+    Entries created before the name could be configured fall back to the
+    device name they always had.
+    """
+    return data.get(CONF_NAME) or f"Car Rental Tracker ({data[CONF_START_DATE]})"
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate an entry to the current config entry version."""
+    if entry.version > 1:
+        # Downgraded from a future major version that this code cannot read.
+        return False
+
+    if entry.minor_version < 2:
+        # Store the device name the entry had so far as its contract name, so
+        # the device keeps its name and the options form can show it.
+        name = contract_name(entry.data)
+        # The title used to be generated from the start date; keep a title the
+        # user has changed.
+        title = (
+            name
+            if entry.title == f"Car Rental ({entry.data[CONF_START_DATE]})"
+            else entry.title
+        )
+        hass.config_entries.async_update_entry(
+            entry,
+            data={**entry.data, CONF_NAME: name},
+            title=title,
+            minor_version=2,
+        )
+        _LOGGER.debug("Migrated entry %s to version 1.2", entry.entry_id)
+
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -203,6 +276,9 @@ class CarRentalCoordinator(DataUpdateCoordinator[CarRentalData | None]):
         )
         config = entry.data
         self._entity_id: str = config[CONF_ODOMETER_ENTITY]
+        self._is_manual_odometer = self._entity_id.startswith(
+            f"{MANUAL_ODOMETER_DOMAIN}."
+        )
         self._start_date = datetime.fromisoformat(config[CONF_START_DATE]).date()
         self._end_date = datetime.fromisoformat(config[CONF_END_DATE]).date()
         self._store = _baseline_store(hass, entry)
@@ -219,6 +295,8 @@ class CarRentalCoordinator(DataUpdateCoordinator[CarRentalData | None]):
         self._history_error_logged = False
         self._unit_warning_logged = False
         self._missing_logged = False
+        # First time a lower reading was ignored, None while readings are valid
+        self._rollback_since: datetime | None = None
 
     async def _async_setup(self) -> None:
         """Load the persisted month-start baseline."""
@@ -251,11 +329,63 @@ class CarRentalCoordinator(DataUpdateCoordinator[CarRentalData | None]):
             return
         if old_state is not None and old_state.state == new_state.state:
             return
+        if not self._accept_state(new_state):
+            return
 
-        self._record_state(new_state)
         self.config_entry.async_create_task(
             self.hass, self.async_request_refresh(), "car_rental_tracker_refresh"
         )
+
+    def _accept_state(self, state: State) -> bool:
+        """Record a numeric odometer state unless it is a rollback glitch.
+
+        A reading below the last accepted one (or below the initial odometer
+        before any reading was accepted) is ignored. When the source keeps
+        reporting lower values for ODOMETER_ROLLBACK_ACCEPT_AFTER, they are
+        accepted: the source changed, or the last accepted value was a glitch.
+
+        Returns False when the reading was ignored.
+        """
+        reading = parse_odometer(state.state)
+        if reading is not None and is_odometer_rollback(
+            self._rollback_reference(),
+            reading,
+            tolerance=ODOMETER_ROLLBACK_TOLERANCE,
+            is_manual=self._is_manual_odometer,
+        ):
+            now = dt_util.utcnow()
+            if self._rollback_since is None:
+                self._rollback_since = now
+                _LOGGER.warning(
+                    "Ignoring odometer reading %s of %s because it is lower than "
+                    "%s. It is accepted if the odometer keeps reporting lower "
+                    "values for %s",
+                    reading,
+                    self._entity_id,
+                    self._rollback_reference(),
+                    ODOMETER_ROLLBACK_ACCEPT_AFTER,
+                )
+                return False
+            if now - self._rollback_since < ODOMETER_ROLLBACK_ACCEPT_AFTER:
+                return False
+            _LOGGER.warning(
+                "Accepting odometer reading %s of %s after lower readings for %s",
+                reading,
+                self._entity_id,
+                ODOMETER_ROLLBACK_ACCEPT_AFTER,
+            )
+
+        self._rollback_since = None
+        self._record_state(state)
+        return True
+
+    def _rollback_reference(self) -> float:
+        """Return the value a new reading must not drop below."""
+        if self._last_snapshot is not None:
+            last = parse_odometer(self._last_snapshot.state)
+            if last is not None:
+                return last
+        return float(self.config_entry.data[CONF_INITIAL_ODOMETER])
 
     def _record_state(self, state: State) -> None:
         """Remember a valid odometer reading and when its value was set."""
@@ -282,7 +412,7 @@ class CarRentalCoordinator(DataUpdateCoordinator[CarRentalData | None]):
         """Read the current odometer value, or the last valid one."""
         state = self.hass.states.get(self._entity_id)
         if state is not None and parse_odometer(state.state) is not None:
-            self._record_state(state)
+            self._accept_state(state)
             self._missing_logged = False
         elif not self._missing_logged:
             self._missing_logged = True

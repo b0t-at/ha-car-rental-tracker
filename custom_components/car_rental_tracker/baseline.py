@@ -55,6 +55,25 @@ def parse_odometer(value: Any) -> float | None:
     return number
 
 
+def is_odometer_rollback(
+    previous: float | None,
+    new: float,
+    *,
+    tolerance: float,
+    is_manual: bool,
+) -> bool:
+    """Return True if a new odometer reading should be ignored as a glitch.
+
+    An odometer only counts up, so a reading more than ``tolerance`` below the
+    last accepted one is treated as a glitch of the source. Values entered by
+    hand (``is_manual``) are deliberate, so a lower one is a correction and is
+    accepted.
+    """
+    if previous is None or is_manual:
+        return False
+    return new < previous - tolerance
+
+
 def baseline_month(today: date, start_date: date, end_date: date) -> date | None:
     """Return the first day of the month that needs a recorder baseline.
 
