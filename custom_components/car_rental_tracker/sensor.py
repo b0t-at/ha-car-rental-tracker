@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.sensor import (
+    ENTITY_ID_FORMAT,
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
@@ -15,9 +16,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfLength, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import slugify
 
 try:
     from homeassistant.const import UnitOfRatio
@@ -26,12 +29,13 @@ try:
 except ImportError:  # Home Assistant < 2026.7
     from homeassistant.const import PERCENTAGE
 
-from . import CarRentalCoordinator, CarRentalData
+from . import CarRentalCoordinator, CarRentalData, contract_name
 from .calculations import STATUS_CRITICAL, STATUS_OK, STATUS_WARNING
 from .const import (
-    CONF_START_DATE,
     DOMAIN,
     SENSOR_CURRENT_ODOMETER,
+    SENSOR_DAILY_AVERAGE,
+    SENSOR_DAILY_TARGET,
     SENSOR_DAYS_ELAPSED,
     SENSOR_DAYS_REMAINING,
     SENSOR_KM_ALLOWED,
@@ -43,10 +47,15 @@ from .const import (
     SENSOR_MONTHLY_REMAINING,
     SENSOR_PROJECTED_COST,
     SENSOR_PROJECTED_OVERAGE,
+    SENSOR_DEVIATION_TODAY,
     SENSOR_STATUS,
+    SENSOR_TARGET_TODAY,
     SENSOR_TIME_PROGRESS,
     SENSOR_TOTAL_DRIVEN,
 )
+
+# Home Assistant has no km per day unit; the sensors carry it as plain text.
+UNIT_KM_PER_DAY = "km/d"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -74,6 +83,21 @@ def _distance(
         state_class=state_class,
         value_fn=value_fn,
         attributes_fn=attributes_fn,
+    )
+
+
+def _daily_rate(
+    key: str, icon: str, value_fn: Callable[[CarRentalData], StateType]
+) -> CarRentalSensorEntityDescription:
+    """Return the description of a sensor reporting km per day."""
+    return CarRentalSensorEntityDescription(
+        key=key,
+        translation_key=key,
+        icon=icon,
+        native_unit_of_measurement=UNIT_KM_PER_DAY,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=value_fn,
     )
 
 
@@ -182,7 +206,37 @@ SENSOR_DESCRIPTIONS: tuple[CarRentalSensorEntityDescription, ...] = (
             "days_total": data.stats.days_total,
         },
     ),
+    _distance(
+        SENSOR_TARGET_TODAY,
+        "mdi:flag-checkered",
+        lambda data: data.stats.target_today_km,
+    ),
+    _distance(
+        SENSOR_DEVIATION_TODAY,
+        "mdi:plus-minus-variant",
+        lambda data: data.stats.deviation_today_km,
+    ),
+    _daily_rate(
+        SENSOR_DAILY_AVERAGE,
+        "mdi:car-clock",
+        lambda data: data.stats.daily_average_km,
+    ),
+    _daily_rate(
+        SENSOR_DAILY_TARGET,
+        "mdi:calendar-today",
+        lambda data: data.stats.daily_target_km,
+    ),
 )
+
+
+def entity_object_id(name: str, key: str) -> str:
+    """Return the object id requested for a new sensor of a contract.
+
+    Built from the contract name and the English sensor key, so it does not
+    depend on the language Home Assistant runs in. The entity registry keeps
+    the id of an existing entity and adds a suffix such as _2 on conflicts.
+    """
+    return f"{slugify(name) or DOMAIN}_{key}"
 
 
 async def async_setup_entry(
@@ -216,11 +270,17 @@ class CarRentalSensor(CoordinatorEntity[CarRentalCoordinator], SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         if description.device_class == SensorDeviceClass.MONETARY:
             self._attr_native_unit_of_measurement = coordinator.hass.config.currency
-        # The device name determines the entity ids, e.g.
-        # sensor.car_rental_tracker_2024_01_01_km_remaining
+        name = contract_name(entry.data)
+        # Only used when the entity is added for the first time, e.g.
+        # sensor.car_rental_tracker_km_remaining for the default name.
+        self.entity_id = async_generate_entity_id(
+            ENTITY_ID_FORMAT,
+            entity_object_id(name, description.key),
+            hass=coordinator.hass,
+        )
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name=f"Car Rental Tracker ({entry.data[CONF_START_DATE]})",
+            name=name,
             manufacturer="Car Rental Tracker",
             model="KM Tracker",
             entry_type=DeviceEntryType.SERVICE,

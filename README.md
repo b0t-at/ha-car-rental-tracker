@@ -13,8 +13,11 @@ Track a car rental or lease contract that has a KM allowance. Car Rental Tracker
 - **Time vs. KM progress**: compare the share of the contract period that has passed with the share of the allowance you have used
 - **Projections**: projected KM at contract end, projected overage and projected overage cost
 - **Monthly statistics**: KM driven and remaining in the current calendar month, plus the configured monthly allowance
+- **Target line**: where you should be today, how far you are above or below it, and your daily average against the daily target
 - **Status**: `ok`, `warning` or `critical`, usable in automations
-- **Dashboard card**: progress bars and key figures; loaded automatically, no manual resource needed
+- **Stable entity ids**: built from the contract name and the English sensor key, whatever language Home Assistant uses
+- **Glitch protection**: an odometer reading that suddenly drops is ignored
+- **Dashboard card**: progress bars and key figures, a visual editor, and sections you can hide; loaded automatically, no manual resource needed
 - **English and German**: the configuration dialogs, sensor names, status values and the card are available in English and German (see [Languages](#languages))
 
 ## Installation
@@ -32,13 +35,20 @@ Track a car rental or lease contract that has a KM allowance. Car Rental Tracker
 1. Copy the `custom_components/car_rental_tracker` folder from this repository into your Home Assistant `config/custom_components/` directory.
 2. Restart Home Assistant.
 
+### Upgrading from 1.5.x
+
+- **Contract name**: each contract now has a name, which is used as the device name and entry title. Existing contracts get the device name they had so far ("Car Rental Tracker (&lt;start date&gt;)"); change it with **Configure**. An entry title you changed yourself is kept.
+- **Entity ids**: existing entity ids don't change. The four new sensors (see below) get ids with the English sensor key, even if your other ids are German.
+- **New sensors**: Target Today, Deviation Today, Daily Average and Daily Target.
+- **Card**: if the card editor said "Visual editor not supported", update and reload the browser once. The card is now served from `/car_rental_tracker/car-rental-card.js` with headers that make the browser check for a new version on every load. You can remove any Lovelace resource pointing to `car-rental-card.js`.
+
 ### Upgrading from 1.3.x
 
 Existing contracts keep their entities and history, but some values and metadata change:
 
 - **Statistics metadata**: Days Remaining and Days Elapsed now use the unit `d` and the `duration` device class, Projected Cost is a `monetary` sensor without a state class, and KM Allowed has the state class `measurement`. Home Assistant may list issues for these sensors in **Developer tools** → **Statistics**; use the **Fix issue** button there to resolve them.
 - **End date is inclusive**: the total allowance now counts the end date as a contract day, so a contract from Jan 1 to Dec 31 is exactly 12 months. If you entered the day after the contract ends as the end date (for example Jan 1 instead of Dec 31), KM Allowed may now be about one day's allowance too high. Change the end date to the last day of the contract with **Configure**.
-- **Card resource**: the card is now loaded automatically. If you added `/hacsfiles/car_rental_tracker/car-rental-card.js` as a Lovelace resource, you can remove it; leaving it in place does no harm.
+- **Card resource**: the card is now loaded automatically. If you added `/hacsfiles/car_rental_tracker/car-rental-card.js` as a Lovelace resource, remove it (see [Card has no visual editor](#card-has-no-visual-editor)).
 - **New sensor**: Monthly Allowance shows the configured KM allowance per month.
 
 ## Configuration
@@ -46,6 +56,7 @@ Existing contracts keep their entities and history, but some values and metadata
 1. Go to **Settings** → **Devices & services** → **Add integration**.
 2. Search for **Car Rental Tracker**.
 3. Fill in the form:
+   - **Name**: used as the device name and for the entity ids, for example the name of the car (default: "Car Rental Tracker")
    - **Start date**: the first day of the contract
    - **End date**: the last day of the contract (inclusive; a contract from Jan 1 to Dec 31 is exactly 12 months)
    - **KM allowance per month**: the monthly KM limit from your contract
@@ -53,25 +64,25 @@ Existing contracts keep their entities and history, but some values and metadata
    - **Overage cost per KM**: what the contract charges per KM over the allowance
    - **Odometer entity**: a `sensor` or an `input_number` that holds the current odometer reading in km. It must exist and have a numeric state when you save the form. If your car has no odometer sensor, create an `input_number` helper and update it by hand or from an automation.
 
+An odometer only counts up. If a `sensor` suddenly reports a value more than 1 km below the last reading (for example `0` while the car's API is down), the reading is ignored and a warning is logged. Right after a restart, readings below the initial odometer are ignored the same way. If the sensor keeps reporting lower values for an hour, they are accepted, because then the source has changed or the earlier value was the glitch. A lower value in an `input_number` is always accepted, because you set it yourself, for example to correct a typo.
+
 You can change these values later with **Configure** on the integration's entry. The integration reloads with the new values. If you keep the same odometer entity, it isn't checked again, so you can edit the other values while the entity is temporarily unavailable.
 
-Entity ids are created once, when you add the contract. If you change the start date later, the device gets the new name, but the entity ids keep the old date. Rename them on the device page if you want them to match.
+Entity ids are created once, when you add the contract. If you change the name later, the device gets the new name, but the entity ids keep the old one. Rename them on the device page if you want them to match.
 
 ### Several rentals
 
-Add the integration once per contract. Each entry creates its own device ("Car Rental Tracker (&lt;start date&gt;)") with its own set of sensors. Give each one its own card (see [Dashboard card](#dashboard-card)).
+Add the integration once per contract and give each one its own name, for example "Personal car" and "Company car". Each entry creates its own device with its own set of sensors. Give each one its own card (see [Dashboard card](#dashboard-card)).
 
 ## Sensors
 
-Each contract creates 15 sensors on one device. Entity ids are built from the device name, which contains the contract start date:
+Each contract creates 19 sensors on one device. Entity ids are built from the contract name and the English sensor key, in every language:
 
 ```
-sensor.car_rental_tracker_<YYYY_MM_DD>_<sensor>
+sensor.<name>_<sensor>
 ```
 
-For a contract that starts on 2024-01-01, the KM Remaining sensor is `sensor.car_rental_tracker_2024_01_01_km_remaining`. If two contracts share a start date, Home Assistant adds a suffix such as `_2` to the second one. The ids are fixed when the contract is added (see [Configuration](#configuration)), and you can rename them yourself, so the device page (**Settings** → **Devices & services** → **Car Rental Tracker** → device) is the reliable place to look them up.
-
-The ids and suffixes in this README are the ones Home Assistant creates when its system language is English. If the system language is German when you add the contract, the sensor part of the ids is built from the German sensor names instead (see [Entity ids and the system language](#entity-ids-and-the-system-language)).
+For a contract named "Car Rental Tracker" (the default), the KM Remaining sensor is `sensor.car_rental_tracker_km_remaining`; for one named "Company car" it is `sensor.company_car_km_remaining`. If two contracts have the same name, Home Assistant adds a suffix such as `_2` to the second one. The ids are fixed when the contract is added (see [Configuration](#configuration)), and you can rename them yourself, so the device page (**Settings** → **Devices & services** → **Car Rental Tracker** → device) is the reliable place to look them up. Contracts added before version 1.6 keep their ids (see [Entity ids of older contracts](#entity-ids-of-older-contracts)).
 
 | Sensor | Entity id suffix | Description | Unit |
 |--------|------------------|-------------|------|
@@ -90,6 +101,10 @@ The ids and suffixes in this README are the ones Home Assistant creates when its
 | Projected Overage | `projected_overage` | Projected KM above the allowance at contract end | km |
 | Projected Cost | `projected_cost` | Projected overage × overage cost per KM | Home Assistant currency |
 | Status | `status` | `ok`, `warning` or `critical` | - |
+| Target Today | `target_today` | KM you may have driven by today if you spread the allowance evenly over the contract | km |
+| Deviation Today | `deviation_today` | Total Driven minus Target Today; positive when you are above the target line | km |
+| Daily Average | `daily_average` | KM driven per day since contract start; unknown before the contract starts | km/d |
+| Daily Target | `daily_target` | KM per day the allowance allows (KM Allowed ÷ contract days) | km/d |
 
 The Projected Cost sensor uses the currency configured in **Settings** → **System** → **General**.
 
@@ -103,11 +118,11 @@ The card is served by the integration and loaded into the frontend automatically
 
 1. Edit your dashboard and click **Add card**.
 2. Search for **Car Rental Tracker Card**.
-3. The card picker pre-fills the Status sensor of one of your contracts. Use the visual editor to pick another contract (the entity picker only lists Car Rental Tracker sensors) or set a title. The equivalent YAML is:
+3. The card picker pre-fills the Status sensor of one of your contracts. Use the visual editor to pick another contract (the entity picker only lists Car Rental Tracker sensors), set a title, or hide sections under **Display options**. The equivalent YAML is:
 
 ```yaml
 type: custom:car-rental-card
-entity: sensor.car_rental_tracker_2024_01_01_status
+entity: sensor.car_rental_tracker_status
 title: My Rental Car
 ```
 
@@ -116,6 +131,11 @@ title: My Rental Car
 | `type` | yes | `custom:car-rental-card` |
 | `entity` | yes | Any sensor of the contract's device; usually the Status sensor. The card finds the other sensors of the same device by itself. |
 | `title` | no | Card heading (default: "Car Rental Tracker") |
+| `show_progress` | no | Show the progress overview with the target line (default: `true`) |
+| `show_month` | no | Show this month's figures (default: `true`) |
+| `show_projections` | no | Show the projections (default: `true`) |
+| `show_alerts` | no | Show warning and critical alerts (default: `true`) |
+| `clamp_percent` | no | Show at most 100 % instead of the real value once the allowance is used up (default: `false`) |
 
 ### Several rentals
 
@@ -125,10 +145,10 @@ Point each card at a sensor of a different contract:
 type: vertical-stack
 cards:
   - type: custom:car-rental-card
-    entity: sensor.car_rental_tracker_2024_01_01_status
+    entity: sensor.personal_car_status
     title: Personal car
   - type: custom:car-rental-card
-    entity: sensor.car_rental_tracker_2025_03_15_status
+    entity: sensor.company_car_status
     title: Company car
 ```
 
@@ -139,13 +159,13 @@ The sensors also work in the built-in cards:
 ```yaml
 type: entities
 entities:
-  - entity: sensor.car_rental_tracker_2024_01_01_total_driven
+  - entity: sensor.car_rental_tracker_total_driven
     name: Total driven
-  - entity: sensor.car_rental_tracker_2024_01_01_km_remaining
+  - entity: sensor.car_rental_tracker_km_remaining
     name: KM left
-  - entity: sensor.car_rental_tracker_2024_01_01_days_remaining
+  - entity: sensor.car_rental_tracker_days_remaining
     name: Days left
-  - entity: sensor.car_rental_tracker_2024_01_01_status
+  - entity: sensor.car_rental_tracker_status
     name: Status
 ```
 
@@ -160,7 +180,7 @@ automation:
   - alias: Car rental status changed
     triggers:
       - trigger: state
-        entity_id: sensor.car_rental_tracker_2024_01_01_status
+        entity_id: sensor.car_rental_tracker_status
         to:
           - warning
           - critical
@@ -173,7 +193,7 @@ automation:
             You have exceeded your KM allowance. Additional charges will apply.
             {% else %}
             You are driving faster than your contract allows.
-            Projected overage: {{ states('sensor.car_rental_tracker_2024_01_01_projected_overage') }} km.
+            Projected overage: {{ states('sensor.car_rental_tracker_projected_overage') }} km.
             {% endif %}
 ```
 
@@ -195,9 +215,9 @@ automation:
         data:
           title: "Car rental: {{ now().strftime('%B') }} summary"
           message: >
-            Driven this month: {{ states('sensor.car_rental_tracker_2024_01_01_monthly_driven') }} km
-            of {{ states('sensor.car_rental_tracker_2024_01_01_monthly_allowance') }} km.
-            KM left in the contract: {{ states('sensor.car_rental_tracker_2024_01_01_km_remaining') }} km.
+            Driven this month: {{ states('sensor.car_rental_tracker_monthly_driven') }} km
+            of {{ states('sensor.car_rental_tracker_monthly_allowance') }} km.
+            KM left in the contract: {{ states('sensor.car_rental_tracker_km_remaining') }} km.
 ```
 
 More examples are in [docs/EXAMPLE.md](docs/EXAMPLE.md).
@@ -217,6 +237,17 @@ Time Progress = Days Elapsed / Contract Days × 100
 KM Progress   = Total Driven / KM Allowed × 100
 KM Projected  = Total Driven + (Total Driven / Days Elapsed) × Days Remaining
 ```
+
+### Target line
+
+```
+Daily Target    = KM Allowed / Contract Days
+Target Today    = Daily Target × Days Elapsed
+Deviation Today = Total Driven - Target Today
+Daily Average   = Total Driven / Days Elapsed
+```
+
+A positive deviation means you have driven more than the target line allows so far.
 
 ### Status
 
@@ -244,13 +275,15 @@ The integration and the card are available in **English** and **German**. There 
 - **Sensor names** and the translated **status** values (`ok`, `warning`, `critical`) use the system language (**Settings** → **System** → **General**).
 - For any other language, English is used.
 
-The device name ("Car Rental Tracker (&lt;start date&gt;)") is not translated. Status values in automations and templates are always `ok`, `warning` and `critical`, whatever the language.
+The device name (the contract name) is not translated. Status values in automations and templates are always `ok`, `warning` and `critical`, whatever the language.
 
-### Entity ids and the system language
+### Entity ids of older contracts
+
+Contracts added since version 1.6 get entity ids from the contract name and the English sensor key, so the language doesn't matter (see [Sensors](#sensors)). Contracts added before keep the ids they were created with; the rest of this section explains how those were built.
 
 Home Assistant builds an entity id once, when the entity is created, from the device name and the sensor name. For languages that use the Latin alphabet, including German, it uses the sensor name in the **system language** at that moment; for other languages it uses English ([`entity_platform.py`](https://github.com/home-assistant/core/blob/dev/homeassistant/helpers/entity_platform.py), `async_load_translations`, and the `NATIVE_ENTITY_IDS` list in [`generated/languages.py`](https://github.com/home-assistant/core/blob/dev/homeassistant/generated/languages.py)).
 
-So if your system language is German when you add a contract, the ids end in the German sensor name, converted to lower case with umlauts written as plain letters (ä → a, ö → o, ü → u) and spaces replaced by `_`, instead of the English suffixes listed under [Sensors](#sensors). The start date part (`sensor.car_rental_tracker_2024_01_01_`) is the same. Ids that already exist are never changed when you switch the language later.
+So if your system language was German when you added a contract before version 1.6, the ids end in the German sensor name, converted to lower case with umlauts written as plain letters (ä → a, ö → o, ü → u) and spaces replaced by `_`, instead of the English suffixes listed under [Sensors](#sensors). The device name part (for example `sensor.car_rental_tracker_2024_01_01_`) is the same. Ids that already exist are never changed when you switch the language later. Sensors added in later versions get the English key.
 
 The card doesn't depend on the ids: it finds the sensors of a contract through the device and each sensor's translation key, so it works with English, German or renamed ids. In your own cards, automations and the examples below, use the ids shown on the device page.
 
@@ -267,7 +300,15 @@ The card doesn't depend on the ids: it finds the sensors of a contract through t
 - Restart Home Assistant after installing or updating the integration.
 - Reload the browser with Ctrl+F5 (Cmd+Shift+R on macOS); on the companion app, clear the frontend cache in the app settings.
 - In the browser developer tools (F12), check on the **Network** tab that `car-rental-card.js` loads, and check the **Console** for errors.
-- A manually added resource `/hacsfiles/car_rental_tracker/car-rental-card.js` is not needed any more, but it does no harm if you already have one.
+- A manually added resource `/hacsfiles/car_rental_tracker/car-rental-card.js` is not needed any more; remove it under **Settings** → **Dashboards** → **⋮** → **Resources**.
+
+### Card has no visual editor
+
+The editor shows "Visual editor not supported" when the browser still runs an old copy of the card, usually from a cached Lovelace resource added for version 1.3 or older.
+
+- Update to version 1.6 or newer, restart Home Assistant and reload the browser once. The card then replaces an old copy in place and logs a warning in the browser console (F12) if it finds one.
+- Remove any Lovelace resource pointing to `car-rental-card.js` under **Settings** → **Dashboards** → **⋮** → **Resources**. The integration loads the card by itself.
+- On the companion app, clear the frontend cache in the app settings.
 
 ### Values look wrong
 

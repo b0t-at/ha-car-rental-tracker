@@ -15,12 +15,14 @@ from homeassistant.util import dt as dt_util
 from .baseline import parse_odometer
 from .const import (
     CONF_END_DATE,
+    CONF_NAME,
     CONF_INITIAL_ODOMETER,
     CONF_KM_ALLOWANCE_PER_MONTH,
     CONF_ODOMETER_ENTITY,
     CONF_OVERAGE_COST_PER_KM,
     CONF_START_DATE,
     DEFAULT_KM_ALLOWANCE,
+    DEFAULT_NAME,
     DEFAULT_OVERAGE_COST,
     DOMAIN,
 )
@@ -50,6 +52,10 @@ def _get_schema(data: dict[str, Any] | None = None) -> vol.Schema:
 
     return vol.Schema(
         {
+            vol.Required(
+                CONF_NAME,
+                default=data.get(CONF_NAME, DEFAULT_NAME),
+            ): selector.TextSelector(),
             vol.Required(
                 CONF_START_DATE,
                 default=start_default,
@@ -107,6 +113,9 @@ def _validate_input(
     """
     errors = _validate_dates(user_input[CONF_START_DATE], user_input[CONF_END_DATE]) or {}
 
+    if not user_input[CONF_NAME].strip():
+        errors[CONF_NAME] = "invalid_name"
+
     entity_id = user_input[CONF_ODOMETER_ENTITY]
     if entity_id != previous_entity:
         state = hass.states.get(entity_id)
@@ -121,15 +130,17 @@ def _unique_id(user_input: dict[str, Any]) -> str:
     return f"{user_input[CONF_ODOMETER_ENTITY]}_{user_input[CONF_START_DATE]}"
 
 
-def _title(user_input: dict[str, Any]) -> str:
-    """Return the title of an entry."""
-    return f"Car Rental ({user_input[CONF_START_DATE]})"
+def _normalize(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Return the input as stored in the entry (name without outer spaces)."""
+    return {**user_input, CONF_NAME: user_input[CONF_NAME].strip()}
 
 
 class CarRentalTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Car Rental Tracker."""
 
     VERSION = 1
+    # 1.2: the contract name is stored in the entry data
+    MINOR_VERSION = 2
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -143,10 +154,8 @@ class CarRentalTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(_unique_id(user_input))
                 self._abort_if_unique_id_configured()
 
-                return self.async_create_entry(
-                    title=_title(user_input),
-                    data=user_input,
-                )
+                data = _normalize(user_input)
+                return self.async_create_entry(title=data[CONF_NAME], data=data)
 
         return self.async_show_form(
             step_id="user",
@@ -186,10 +195,11 @@ class CarRentalTrackerOptionsFlow(config_entries.OptionsFlow):
             if not errors and self._unique_id_taken(unique_id):
                 errors["base"] = "already_configured"
             if not errors:
+                data = _normalize(user_input)
                 self.hass.config_entries.async_update_entry(
                     self.config_entry,
-                    data=user_input,
-                    title=_title(user_input),
+                    data=data,
+                    title=data[CONF_NAME],
                     unique_id=unique_id,
                 )
                 return self.async_create_entry(title="", data={})

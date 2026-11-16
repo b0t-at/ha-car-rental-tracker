@@ -44,6 +44,10 @@ class RentalStats(NamedTuple):
     status: str
     is_over_limit: bool
     is_projected_over: bool
+    target_today_km: float
+    deviation_today_km: float
+    daily_average_km: float | None
+    daily_target_km: float
 
 
 def calculate_rental_stats(
@@ -99,11 +103,18 @@ def calculate_rental_stats(
     time_progress = min(max(time_progress, 0), 100)
     km_progress = (total_driven_km / km_allowed_total * 100) if km_allowed_total > 0 else 0
 
+    # Linear target line: the allowance spread evenly over the contract days
+    daily_target = km_allowed_total / days_total if days_total > 0 else 0
+    target_today = daily_target * days_elapsed
+    # Before the start there is no target to deviate from yet.
+    deviation_today = total_driven_km - target_today if has_started else 0.0
+
     # Linear projection to the end of the contract
     if days_elapsed > 0:
-        daily_average = total_driven_km / days_elapsed
+        daily_average: float | None = total_driven_km / days_elapsed
         km_projected = total_driven_km + (daily_average * days_remaining)
     else:
+        daily_average = None
         km_projected = total_driven_km
 
     # Monthly statistics freeze at the final contract month after the end date
@@ -144,6 +155,10 @@ def calculate_rental_stats(
         status=status,
         is_over_limit=is_over_limit,
         is_projected_over=is_projected_over,
+        target_today_km=round(target_today, 2),
+        deviation_today_km=round(deviation_today, 2),
+        daily_average_km=None if daily_average is None else round(daily_average, 2),
+        daily_target_km=round(daily_target, 2),
     )
 
 

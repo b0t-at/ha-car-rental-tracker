@@ -315,3 +315,53 @@ class TestMonthlyStats:
         assert stats.monthly_driven_km == 400.0
         assert stats.monthly_remaining_km == 600.0
         assert stats.monthly_allowance_km == 1000.0
+
+
+class TestTargetAndDailyRates:
+    """Target line for today, deviation from it and daily rates."""
+
+    def test_on_target_has_zero_deviation(self):
+        # 12,000 km over 366 days; day 183 (Jul 1) is exactly half.
+        stats = _stats(date(2024, 7, 1), 6000)
+
+        assert stats.daily_target_km == pytest.approx(12000 / 366, abs=0.01)
+        assert stats.target_today_km == pytest.approx(6000, abs=0.01)
+        assert stats.deviation_today_km == pytest.approx(0, abs=0.01)
+
+    def test_driving_more_than_target_is_positive_deviation(self):
+        stats = _stats(date(2024, 7, 1), 7000)
+
+        assert stats.deviation_today_km == pytest.approx(1000, abs=0.01)
+
+    def test_driving_less_than_target_is_negative_deviation(self):
+        stats = _stats(date(2024, 7, 1), 5000)
+
+        assert stats.deviation_today_km == pytest.approx(-1000, abs=0.01)
+
+    def test_daily_average_uses_elapsed_days_including_start_day(self):
+        stats = _stats(date(2024, 1, 10), 500)
+
+        assert stats.daily_average_km == pytest.approx(50.0)
+
+    def test_daily_average_ignores_initial_odometer(self):
+        stats = _stats(date(2024, 1, 10), 10500, initial_odometer=10000)
+
+        assert stats.daily_average_km == pytest.approx(50.0)
+
+    def test_before_start_daily_average_is_unknown_and_target_is_zero(self):
+        stats = _stats(date(2023, 12, 1), 0)
+
+        assert stats.daily_average_km is None
+        assert stats.target_today_km == 0
+        assert stats.deviation_today_km == 0
+
+    def test_after_end_target_equals_full_allowance(self):
+        stats = _stats(date(2025, 3, 1), 13000)
+
+        assert stats.target_today_km == pytest.approx(stats.km_allowed)
+        assert stats.deviation_today_km == pytest.approx(1000, abs=0.01)
+
+    def test_before_start_odometer_movement_is_no_deviation(self):
+        stats = _stats(date(2023, 12, 1), 300)
+
+        assert stats.deviation_today_km == 0
