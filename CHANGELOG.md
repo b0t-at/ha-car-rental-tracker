@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/b0t-at/ha-car-rental-tracker/compare/v1.4.0...v1.5.0) (2026-11-16)
+
+
+### Features
+
+* add visual editor support for Car Rental Tracker card configuration ([#34](https://github.com/b0t-at/ha-car-rental-tracker/issues/34)) ([ddb96f0](https://github.com/b0t-at/ha-car-rental-tracker/commit/ddb96f047ec3921e22f314346066b629f8d9b44e))
+
 ## [1.4.0](https://github.com/b0t-at/ha-car-rental-tracker/compare/v1.3.0...v1.4.0) (2026-10-02)
 
 
