@@ -103,7 +103,7 @@ The card is served by the integration and loaded into the frontend automatically
 
 1. Edit your dashboard and click **Add card**.
 2. Search for **Car Rental Tracker Card**.
-3. The card picker pre-fills the Status sensor of one of your contracts. The card has no visual editor, so use the code editor to pick another contract or set a title:
+3. The card picker pre-fills the Status sensor of one of your contracts. Use the visual editor to pick another contract (the entity picker only lists Car Rental Tracker sensors) or set a title. The equivalent YAML is:
 
 ```yaml
 type: custom:car-rental-card

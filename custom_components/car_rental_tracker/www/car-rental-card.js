@@ -88,6 +88,11 @@ const TRANSLATIONS = {
       "Please set 'entity' to a sensor of your Car Rental Tracker device " +
       '(for example its Status sensor, sensor.car_rental_tracker_<start_date>_status)',
     error_title_type: "'title' must be a string",
+    editor_entity: 'Contract sensor',
+    editor_entity_helper:
+      'Any sensor of the Car Rental Tracker contract, usually its Status sensor',
+    editor_title: 'Title (optional)',
+    editor_title_helper: 'Leave empty to use "{default}"',
   },
   de: {
     card_name: 'Car-Rental-Tracker-Karte',
@@ -128,6 +133,11 @@ const TRANSLATIONS = {
       "Bitte setze 'entity' auf einen Sensor deines Car-Rental-Tracker-Geräts " +
       '(zum Beispiel dessen Status-Sensor, sensor.car_rental_tracker_<start_date>_status)',
     error_title_type: "'title' muss eine Zeichenkette sein",
+    editor_entity: 'Vertragssensor',
+    editor_entity_helper:
+      'Ein beliebiger Sensor des Car-Rental-Tracker-Vertrags, üblicherweise der Status-Sensor',
+    editor_title: 'Titel (optional)',
+    editor_title_helper: 'Leer lassen, um „{default}“ zu verwenden',
   },
 };
 
@@ -292,6 +302,27 @@ class CarRentalCard extends HTMLElement {
       (id) => id.startsWith(`sensor.${PLATFORM}_`) && id.endsWith('_status')
     );
     return { entity: fromStates || '' };
+  }
+
+  // Visual editor (HA 2024.11+ renders this schema with ha-form).
+  static getConfigForm() {
+    const t = (key, params) => translate(resolveLanguage(null), key, params);
+    const labels = {
+      entity: [t('editor_entity'), t('editor_entity_helper')],
+      title: [t('editor_title'), t('editor_title_helper', { default: t('default_title') })],
+    };
+    return {
+      schema: [
+        {
+          name: 'entity',
+          required: true,
+          selector: { entity: { filter: { integration: PLATFORM, domain: 'sensor' } } },
+        },
+        { name: 'title', selector: { text: {} } },
+      ],
+      computeLabel: (schema) => (labels[schema.name] || [])[0],
+      computeHelper: (schema) => (labels[schema.name] || [])[1],
+    };
   }
 
   setConfig(config) {

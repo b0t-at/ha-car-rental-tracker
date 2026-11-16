@@ -154,7 +154,7 @@ entity: sensor.car_rental_tracker_2024_01_01_status   # required: any sensor of 
 title: My Rental Car                                   # optional
 ```
 
-The card has no visual editor. It finds the other sensors of the same device through `hass.entities[entity].device_id` and each entity's `translation_key`, so it works with English, German and renamed entity ids. If `translation_key` isn't available, it matches the entity id suffix `_<key>` among the entities of the same device; that fallback only works for English ids.
+The visual editor comes from `static getConfigForm()` (rendered by HA's `ha-form`): an entity picker filtered to `car_rental_tracker` sensors and a text field for the title. The card finds the other sensors of the same device through `hass.entities[entity].device_id` and each entity's `translation_key`, so it works with English, German and renamed entity ids. If `translation_key` isn't available, it matches the entity id suffix `_<key>` among the entities of the same device; that fallback only works for English ids.
 
 ### Translations
 
