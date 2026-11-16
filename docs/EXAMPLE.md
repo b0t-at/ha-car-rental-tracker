@@ -124,7 +124,7 @@ When you have used up your allowance:
 
 ## Card configuration examples
 
-The card is loaded automatically by the integration; you don't need to add a Lovelace resource. Search for **Car Rental Tracker Card** in the card picker; it pre-fills the Status sensor of one of your contracts. The card has no visual editor, so change `entity` or `title` in the card's code editor.
+The card is loaded automatically by the integration; you don't need to add a Lovelace resource. Search for **Car Rental Tracker Card** in the card picker; it pre-fills the Status sensor of one of your contracts. Change `entity` or `title` in the card's visual editor or in its code editor.
 
 ### Basic
 
