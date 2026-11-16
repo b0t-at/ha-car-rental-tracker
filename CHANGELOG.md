@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/b0t-at/ha-car-rental-tracker/compare/v1.5.0...v1.6.0) (2026-11-16)
+
+
+### Features
+
+* Enhance Car Rental Tracker with new features and improvements ([#37](https://github.com/b0t-at/ha-car-rental-tracker/issues/37)) ([4b05220](https://github.com/b0t-at/ha-car-rental-tracker/commit/4b05220a28a32294a502725c0da02dcf5b236cdd))
+
 ## [1.5.0](https://github.com/b0t-at/ha-car-rental-tracker/compare/v1.4.0...v1.5.0) (2026-11-16)
 
 
